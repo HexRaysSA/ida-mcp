@@ -1,0 +1,16 @@
+[project]
+name = "ida-mcp"
+version = "0.1.0"
+description = "Official Hex-Rays IDA MCP Server."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ida-nexus>=0.7.0",
+]
+
+[project.scripts]
+ida-mcp = "ida_mcp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

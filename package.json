@@ -1,0 +1,59 @@
+{
+  "name": "ida-mcp",
+  "version": "0.7.0",
+  "description": "IDA MCP extension",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "omp-extension",
+    "ida",
+    "reverse-engineering",
+    "mcp"
+  ],
+  "repository": "https://github.com/HexRaysSA/ida-mcp.git",
+  "files": [
+    "ida-mcp.ts",
+    "ida-plugin.json",
+    "ida_mcp/*.py",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "omp": {
+    "extensions": [
+      "./ida-mcp.ts"
+    ]
+  },
+  "pi": {
+    "extensions": [
+      "./ida-mcp.ts"
+    ]
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "overrides": {
+    "@hono/node-server": "2.0.11"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.7",
+    "@earendil-works/pi-tui": "^0.80.7",
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck ida-mcp.ts"
+  }
+}

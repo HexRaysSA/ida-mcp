@@ -1,0 +1,12 @@
+{
+  "ida": {
+    "command": "uv",
+    "args": [
+      "run",
+      "ida-mcp",
+      "--agent=codex"
+    ],
+    "cwd": ".",
+    "env_vars": ["IDA_NEXUS_ID", "IDAUSR", "IDA_NEXUS_STATE_DIR"]
+  }
+}
