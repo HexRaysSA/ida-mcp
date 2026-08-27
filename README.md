@@ -4,7 +4,17 @@
 
 This repository is actively WIP, do not use.
 
-## IDA GUI Plugin
+## Installation
+
+### Requirements
+
+- Installed in your PATH
+  - [Git](https://git-scm.com/)
+  - [uv](https://github.com/astral-sh/uv)
+- IDA 9.4 or higher with idalib and Python 3.11+
+- Other IDA MCP servers must be disabled to reduce agent confusion
+
+### IDA GUI Plugin
 
 To support IDA GUI instances when using IDA MCP, install the plugin:
 
@@ -16,40 +26,42 @@ hcli plugin install https://github.com/HexRaysSA/ida-mcp
 
 _Note_: Without the GUI plugin, IDA MCP will only work headlessly.
 
-## MCP Installation
-
-### Requirements
-
-- Installed in your PATH
-  - [Git](https://git-scm.com/)
-  - [uv](https://github.com/astral-sh/uv)
-- IDA 9.4 or higher with idalib and Python 3.11+
-- Other IDA MCP servers must be disabled to reduce agent confusion
-
 ### [Claude Code](https://claude.com/product/claude-code)
 
 ```bash
+# Add Hex-Rays marketplace
 claude plugin marketplace add HexRaysSA/claude-marketplace
+# Install plugin
 claude plugin install ida-mcp@HexRaysSA
+# Update to latest version
+claude plugin update ida-mcp@HexRaysSA
 ```
 
 ### [Codex CLI](https://learn.chatgpt.com/docs/codex/cli)
 
 ```bash
+# Add Hex-Rays marketplace
 codex plugin marketplace add HexRaysSA/codex-marketplace
+# Install plugin
 codex plugin add ida-mcp@HexRaysSA
 ```
 
 ### [Pi](https://pi.dev/)
 
 ```bash
+# Install extension
 pi install git:github.com/HexRaysSA/ida-mcp@latest
+# Update to latest version
+pi update --extensions
 ```
 
 ### [oh-my-pi](https://github.com/can1357/oh-my-pi)
 
 ```bash
+# Install extension
 omp plugin install github:HexRaysSA/ida-mcp#latest
+# Update to latest version
+omp plugin upgrade
 ```
 
 ### Other agents
@@ -72,9 +84,7 @@ Configure a regular stdio MCP server in your MCP JSON configuration:
 ```
 
 `uvx` resolves the latest stable `ida-nexus` release from PyPI, so this
-configuration does not need to be updated for each release. Pre-release
-dependency resolution is currently required because `ida-domain` is published
-as a development release.
+configuration does not need to be updated for each release.
 
 `--agent=my-agent` is a human-chosen label (like `claude-code`, `cursor`,
 `my-custom-agent`, etc.) used to differentiate sessions in a metrics dashboard.
