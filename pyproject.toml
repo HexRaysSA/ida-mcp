@@ -5,7 +5,7 @@ description = "Official Hex-Rays IDA MCP Server."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "ida-nexus>=0.7.0",
+    "ida-nexus>=0.8.0",
 ]
 
 [project.scripts]
