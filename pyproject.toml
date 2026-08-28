@@ -13,6 +13,11 @@ dependencies = [
 [project.scripts]
 ida-mcp = "ida_mcp.cli:main"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -22,4 +27,11 @@ only-include = [
     "ida-plugin.json",
     "ida_mcp_plugin.py",
     "ida_mcp",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "slow: takes minutes because it waits on a real IDA timer",
 ]

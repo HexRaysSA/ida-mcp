@@ -1,0 +1,70 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep this aligned with the release workflow.
+  UV_VERSION: "0.10.6"
+
+jobs:
+  tests:
+    name: IDA ${{ matrix.ida.version }} on ${{ matrix.ida.os }}/py${{ matrix.python-version }}
+    runs-on: ${{ matrix.ida.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            ida: { version: "latest", os: ubuntu-latest }
+          - python-version: "3.13"
+            ida: { version: "latest", os: ubuntu-latest }
+          - python-version: "3.13"
+            ida: { version: "latest", os: macos-latest }
+          - python-version: "3.13"
+            ida: { version: "latest", os: windows-latest }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python with uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install IDA ${{ matrix.ida.version }}
+        shell: bash
+        run: |
+          uv run --with ida-hcli hcli \
+            ida install \
+            --download-id "ida-pro:${{ matrix.ida.version }}" \
+            --license-id "${IDA_LICENSE_ID}" \
+            --install-dir="${{ runner.temp }}/app/ida" \
+            --accept-eula \
+            --set-default \
+            --yes
+        env:
+          HCLI_API_KEY: ${{ secrets.HCLI_API_KEY }}
+          IDA_LICENSE_ID: ${{ secrets.IDA_LICENSE_ID }}
+
+      # The tests drive IDA as a library, so they only need idalib reachable
+      # from the project environment: ida-nexus depends on ida-domain, and the
+      # install step above pointed ida-config.json at this IDA.
+      - name: Create the project environment
+        run: uv sync --group dev
+
+      - name: Run tests
+        run: uv run pytest -v --durations=10
