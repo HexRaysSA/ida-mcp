@@ -91,6 +91,16 @@ cheapest mitigation available.
   unpacked leftovers this issue is about.
 - **Worker logs do not capture IDA kernel output.** The recovery/repair decisions
   above are invisible in `logs/<record-id>.log` because console messages are off.
+- **Workers do not exit even on the clean path.** After `handle.close(wait_for_database=True)`
+  the database is packed within 0.2s, but the worker process was still resident
+  120s later; the same is true after an explicit `shutdown_database(save=True)`.
+  Same family as the SIGTERM finding: the main thread does not leave `serve()`.
+- **A SIGKILLed worker holds its locks until it is reaped.** Between the kill and
+  the zombie being reaped, the registry lock and the database's `.id0` lock are
+  still held, so a scan classifies the record `BLOCKED` and an immediate reopen
+  raises `DatabaseBusyError`. Only relevant to callers that kill their own
+  children (the test harness reaps before it waits), but a recovery policy that
+  probes locks must not treat that window as a live owner forever.
 
 ## Reproducing
 
