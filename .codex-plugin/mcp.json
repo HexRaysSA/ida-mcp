@@ -7,6 +7,11 @@
       "--agent=codex"
     ],
     "cwd": ".",
-    "env_vars": ["IDA_NEXUS_ID", "IDAUSR", "IDA_NEXUS_STATE_DIR"]
+    "env_vars": [
+      "IDA_NEXUS_ID",
+      "IDAUSR",
+      "IDA_NEXUS_STATE_DIR",
+      "IDA_MCP_IDLE_TIMEOUT"
+    ]
   }
 }

@@ -215,6 +215,9 @@ export default function idaNexus(pi: ExtensionAPI) {
         ...(process.env.IDA_NEXUS_STATE_DIR
           ? { IDA_NEXUS_STATE_DIR: process.env.IDA_NEXUS_STATE_DIR }
           : {}),
+        ...(process.env.IDA_MCP_IDLE_TIMEOUT
+          ? { IDA_MCP_IDLE_TIMEOUT: process.env.IDA_MCP_IDLE_TIMEOUT }
+          : {}),
       },
     });
 

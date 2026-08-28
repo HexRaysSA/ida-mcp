@@ -64,6 +64,31 @@ omp plugin install github:HexRaysSA/ida-mcp#latest
 omp plugin upgrade
 ```
 
+### Idle database release
+
+An agent that opens a database and never closes it would otherwise keep an IDA
+worker, and its unpacked IDB, alive for the whole agent session. IDA MCP
+therefore releases its lease on any database it has not used for 30 minutes:
+the worker saves the database, closes it, and exits, so an idle machine can be
+suspended and no IDB stays open longer than the work needs it.
+
+This is invisible to agents. The next tool call that uses the database reopens
+it under the same `instance_id`, so nothing an agent is holding goes stale. GUI
+databases are never released, because a GUI instance is not kept alive by MCP
+leases.
+
+Pass `--idle-timeout` to choose a different period, or to turn the behavior
+off:
+
+```bash
+ida-mcp --agent=my-agent --idle-timeout=300   # five minutes
+ida-mcp --agent=my-agent --idle-timeout=off   # never release
+```
+
+`IDA_MCP_IDLE_TIMEOUT` sets the same value for hosts that configure MCP servers
+through the environment rather than through command-line arguments. The plugin
+installations above forward it.
+
 ### Other agents
 
 Configure a regular stdio MCP server in your MCP JSON configuration:
@@ -84,15 +109,12 @@ Configure a regular stdio MCP server in your MCP JSON configuration:
 ```
 
 `uvx` resolves the latest stable `ida-nexus` release from PyPI, so this
-configuration does not need to be updated for each release.
+configuration does not need to be updated for each release. It runs the IDA
+Nexus MCP server directly, so it keeps its database leases until the agent
+closes them or the server exits; idle release is part of `ida-mcp`.
 
 `--agent=my-agent` is a human-chosen label (like `claude-code`, `cursor`,
 `my-custom-agent`, etc.) used to differentiate sessions in a metrics dashboard.
-
-We tested the following clients, but any MCP client should work similarly:
-
-- [Antigravity](https://coder.google.com/)
-- [LM Studio](https://lmstudio.ai/)
 
 ### Example Usage
 
