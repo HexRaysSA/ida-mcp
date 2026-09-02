@@ -25,20 +25,20 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ida-nexus", specifier = ">=0.8.1" }]
+requires-dist = [{ name = "ida-nexus", specifier = ">=0.9.1" }]
 
 [[package]]
 name = "ida-nexus"
-version = "0.8.1"
+version = "0.9.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ida-domain" },
     { name = "packaging" },
     { name = "zeromcp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/65/40/f3743abb60bcf8dc68bbc064d675ccdc2c4f88587232e15b46a63e7e4557/ida_nexus-0.8.1.tar.gz", hash = "sha256:c622f6f27b5e2847fd3472fa799c3f780c0958131abe2a8439bf127ef48c9489", size = 193129, upload-time = "2026-08-27T16:40:08.426Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/44/1b0d07070054ee5508163ffb6d396106dc6e75068a35da97359d0bc04dbd/ida_nexus-0.9.1.tar.gz", hash = "sha256:15adf7b75bd14353e57afa9a6e4b918e4b7f49e0aa9879ee209e2f1cf6dfec0e", size = 195179, upload-time = "2026-08-29T10:44:54.054Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/fa/aabd214e85298e731d36091d7677fe0a36f54ded9a909b66db45c39da0fa/ida_nexus-0.8.1-py3-none-any.whl", hash = "sha256:1a491ce2eed8367b72f71ab98760b05843fa7a9e6d62bfd482a29dcb4a1c5d2d", size = 131549, upload-time = "2026-08-27T16:40:07.338Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/6e/34ff2fe90a501b5488ad471648dd778f381386c0a2ec8c031ebaba1f78f8/ida_nexus-0.9.1-py3-none-any.whl", hash = "sha256:724480868c43220b196356cebc7efe2f112fd21a7222c4e4dddb6de62b6541d3", size = 133164, upload-time = "2026-08-29T10:44:52.727Z" },
 ]
 
 [[package]]
@@ -70,9 +70,9 @@ wheels = [
 
 [[package]]
 name = "zeromcp"
-version = "1.8.1"
+version = "1.10.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/11/06/842226828ba36c335b9ac50276477219453028a14bc7db3c50296f629ab4/zeromcp-1.8.1.tar.gz", hash = "sha256:6dfe74cf50ac812d0c903bfe78f15ea9c789088cc9e225589c34976711ff2be9", size = 104200, upload-time = "2026-08-18T10:23:56.421Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/dd/fe1521a0e19b1cc601d82a386334509790cdcefc86bf5f07b1dc113196e8/zeromcp-1.10.0.tar.gz", hash = "sha256:e1e7a389644f62dd8c332c4906cb4041514d07c2495a70e032223c3ac9324c0b", size = 106098, upload-time = "2026-09-01T14:29:06.963Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/f4/6c100a72a75e7112d3ed2bbc569050d2aa69ff79b04a27ee92af92eadff8/zeromcp-1.8.1-py3-none-any.whl", hash = "sha256:2b8aa3a5227b23a8c775ddc3da89fa3991cd211d57ff7059bc5a3368bdbacad1", size = 25626, upload-time = "2026-08-18T10:23:55.218Z" },
+    { url = "https://files.pythonhosted.org/packages/75/0b/fb78160347ac21886933cb53db6485d235c085b823637dcfc84538ba0519/zeromcp-1.10.0-py3-none-any.whl", hash = "sha256:8fcae1e63d597850b954f43ff46fcc6d108d88d2c6be2a519e54506f92e2ed46", size = 26734, upload-time = "2026-09-01T14:29:05.962Z" },
 ]
