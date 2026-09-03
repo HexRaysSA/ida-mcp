@@ -1,0 +1,22 @@
+{
+  "name": "ida-mcp",
+  "version": "0.9.0",
+  "description": "Official IDA MCP server for GitHub Copilot CLI.",
+  "author": {
+    "name": "Hex-Rays",
+    "url": "https://hex-rays.com/"
+  },
+  "homepage": "https://github.com/HexRaysSA/ida-mcp",
+  "repository": "https://github.com/HexRaysSA/ida-mcp.git",
+  "license": "MIT",
+  "keywords": [
+    "ida",
+    "ida-pro",
+    "reverse-engineering",
+    "mcp",
+    "copilot"
+  ],
+  "category": "Developer Tools",
+  "mcpServers": ".github/plugin/mcp.json",
+  "hooks": ".github/plugin/hooks.json"
+}

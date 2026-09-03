@@ -44,6 +44,17 @@ codex plugin marketplace add HexRaysSA/codex-marketplace
 codex plugin add ida-mcp@HexRaysSA
 ```
 
+### [GitHub Copilot CLI](https://github.com/features/copilot/cli)
+
+```bash
+# Add Hex-Rays marketplace
+copilot plugin marketplace add HexRaysSA/copilot-marketplace
+# Install plugin
+copilot plugin install ida-mcp@HexRaysSA
+# Update to latest version
+copilot plugin update ida-mcp
+```
+
 ### [Pi](https://pi.dev/)
 
 ```bash

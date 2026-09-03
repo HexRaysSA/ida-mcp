@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "ida-.*",
+        "type": "command",
+        "exec": "uv",
+        "args": [
+          "run",
+          "--project",
+          "${PLUGIN_ROOT}",
+          "ida-mcp",
+          "--report-session=copilot"
+        ],
+        "timeoutSec": 30
+      }
+    ]
+  }
+}

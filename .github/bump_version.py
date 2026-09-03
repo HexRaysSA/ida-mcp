@@ -30,6 +30,7 @@ JSON_FIELDS: dict[str, tuple[tuple[str, ...], ...]] = {
     "ida-plugin.json": (("plugin", "version"),),
     ".claude-plugin/plugin.json": (("version",),),
     ".codex-plugin/plugin.json": (("version",),),
+    ".github/plugin/plugin.json": (("version",),),
 }
 MANAGED_FILES = (
     "package.json",
@@ -39,6 +40,7 @@ MANAGED_FILES = (
     "ida-plugin.json",
     ".claude-plugin/plugin.json",
     ".codex-plugin/plugin.json",
+    ".github/plugin/plugin.json",
 )
 
 
