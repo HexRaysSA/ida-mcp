@@ -1,6 +1,6 @@
 {
   "name": "ida-mcp",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "IDA MCP server.",
   "author": {
     "name": "Hex-Rays",
