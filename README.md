@@ -2,8 +2,6 @@
 
 ⚠️ Experimental prerelease ⚠️
 
-This repository is actively WIP, do not use.
-
 ## Installation
 
 ### Requirements
