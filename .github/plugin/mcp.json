@@ -11,9 +11,9 @@
         "--agent=copilot"
       ],
       "env": {
-        "IDA_NEXUS_ID": "${IDA_NEXUS_ID}",
-        "IDAUSR": "${IDAUSR}",
-        "IDA_NEXUS_STATE_DIR": "${IDA_NEXUS_STATE_DIR}"
+        "IDA_NEXUS_ID": "${IDA_NEXUS_ID:-}",
+        "IDAUSR": "${IDAUSR:-}",
+        "IDA_NEXUS_STATE_DIR": "${IDA_NEXUS_STATE_DIR:-}"
       },
       "tools": [
         "*"
