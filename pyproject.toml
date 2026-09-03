@@ -7,7 +7,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
-    "ida-nexus>=0.10.2",
+    "ida-nexus>=0.10.3",
 ]
 
 [project.scripts]
