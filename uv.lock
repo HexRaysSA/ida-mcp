@@ -25,20 +25,20 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ida-nexus", specifier = ">=0.9.1" }]
+requires-dist = [{ name = "ida-nexus", specifier = ">=0.10.2" }]
 
 [[package]]
 name = "ida-nexus"
-version = "0.9.1"
+version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ida-domain" },
     { name = "packaging" },
     { name = "zeromcp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/44/1b0d07070054ee5508163ffb6d396106dc6e75068a35da97359d0bc04dbd/ida_nexus-0.9.1.tar.gz", hash = "sha256:15adf7b75bd14353e57afa9a6e4b918e4b7f49e0aa9879ee209e2f1cf6dfec0e", size = 195179, upload-time = "2026-08-29T10:44:54.054Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/45/e8/0e578727b7e891d9540125db65136065330dd92a8ead445ff575f5adaf2f/ida_nexus-0.10.2.tar.gz", hash = "sha256:9dc51d564a9ebe2b4c77f0030a36897590e056ffad8fdacb831a5fd2fd30de15", size = 213462, upload-time = "2026-09-03T15:08:32.274Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/6e/34ff2fe90a501b5488ad471648dd778f381386c0a2ec8c031ebaba1f78f8/ida_nexus-0.9.1-py3-none-any.whl", hash = "sha256:724480868c43220b196356cebc7efe2f112fd21a7222c4e4dddb6de62b6541d3", size = 133164, upload-time = "2026-08-29T10:44:52.727Z" },
+    { url = "https://files.pythonhosted.org/packages/26/7b/b8add908410e25f2d6834686c831c569ec4164fd7115ca8beb98161c50be/ida_nexus-0.10.2-py3-none-any.whl", hash = "sha256:e02ddfe11e69444b5eeac84fb870fddde2e7964a31a2b2a141cbd85f90504108", size = 143946, upload-time = "2026-09-03T15:08:30.957Z" },
 ]
 
 [[package]]
