@@ -205,7 +205,7 @@ export default function idaNexus(pi: ExtensionAPI) {
     let captureStderr = true;
     const transport = new StdioClientTransport({
       command: "uv",
-      args: ["run", "ida-mcp", `--agent=${agentKind}`],
+      args: ["run", "--exclude-newer=1s", "ida-mcp", `--agent=${agentKind}`],
       cwd: PACKAGE_ROOT,
       stderr: "pipe",
       env: {

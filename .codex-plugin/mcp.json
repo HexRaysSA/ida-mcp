@@ -3,6 +3,7 @@
     "command": "uv",
     "args": [
       "run",
+      "--exclude-newer=1s",
       "ida-mcp",
       "--agent=codex"
     ],
