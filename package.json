@@ -55,6 +55,7 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck ida-mcp.ts"
+    "test": "node --test ida-mcp.test.ts",
+    "typecheck": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --allowImportingTsExtensions --skipLibCheck ida-mcp.ts ida-mcp.test.ts"
   }
 }
