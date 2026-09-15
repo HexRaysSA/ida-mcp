@@ -9,9 +9,9 @@ import ida_nexus.plugin
 
 class IDAMCPPlugin(idaapi.plugin_t):
     flags = idaapi.PLUGIN_KEEP
-    comment = "Expose the current GUI database through IDA Nexus for IDA MCP"
+    comment = "Official Hex-Rays IDA MCP Server."
     help = ""
-    wanted_name = "IDA MCP"
+    wanted_name = "Hex-Rays MCP"
     wanted_hotkey = ""
 
     def init(self) -> int:

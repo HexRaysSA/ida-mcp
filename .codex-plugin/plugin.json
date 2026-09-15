@@ -1,7 +1,7 @@
 {
   "name": "ida-mcp",
   "version": "0.10.4",
-  "description": "IDA MCP server.",
+  "description": "Official Hex-Rays IDA MCP Server.",
   "author": {
     "name": "Hex-Rays",
     "url": "https://hex-rays.com/"

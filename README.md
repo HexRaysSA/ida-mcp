@@ -1,6 +1,8 @@
-# IDA MCP
+# Hex-Rays IDA MCP
 
 ⚠️ Experimental prerelease ⚠️
+
+Official Hex-Rays IDA MCP Server.
 
 ## Installation
 
@@ -14,7 +16,7 @@
 
 ### IDA GUI Plugin
 
-To support IDA GUI instances when using IDA MCP, install the plugin:
+To support IDA GUI instances when using Hex-Rays IDA MCP, install the plugin:
 
 ```bash
 uvx ida-hcli plugin install https://github.com/HexRaysSA/ida-mcp
@@ -83,8 +85,8 @@ Configure a regular stdio MCP server in your MCP JSON configuration:
     "ida": {
       "command": "uvx",
       "args": [
-        "ida-nexus",
-        "mcp",
+        "--exclude-newer=1s",
+        "ida-mcp",
         "--agent=my-agent"
       ]
     }
@@ -92,7 +94,7 @@ Configure a regular stdio MCP server in your MCP JSON configuration:
 }
 ```
 
-`uvx` resolves the latest stable `ida-nexus` release from PyPI, so this
+`uvx` resolves the latest stable `ida-mcp` release from PyPI, so this
 configuration does not need to be updated for each release.
 
 `--agent=my-agent` is a human-chosen label (like `claude-code`, `cursor`,

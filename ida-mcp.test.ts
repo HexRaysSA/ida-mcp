@@ -4,7 +4,7 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import idaNexus from "./ida-mcp.ts";
+import idaMcp from "./ida-mcp.ts";
 
 type Handler = (...args: unknown[]) => unknown;
 
@@ -77,7 +77,7 @@ test("OMP waits for MCP tool registration at the first agent start", async (t) =
     },
   };
 
-  idaNexus(pi);
+  idaMcp(pi);
 
   const sessionStartResult = requireHandler(handlers, "session_start")({}, ctx);
   assert.equal(

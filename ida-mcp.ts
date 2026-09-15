@@ -86,7 +86,7 @@ function renderToolCall(
   return new Text(text, 0, 0);
 }
 
-export default function idaNexus(pi: ExtensionAPI) {
+export default function idaMcp(pi: ExtensionAPI) {
   const agentKind = "arktype" in pi && "zod" in pi ? "omp" : "pi";
   if (agentKind === "omp") {
     pi.registerFlag(DISCOVERABLE_TOOLS_FLAG, {
@@ -172,7 +172,7 @@ export default function idaNexus(pi: ExtensionAPI) {
                     ? "ready"
                     : "startup failed";
               const header = [
-                `${icon} ${theme.fg("accent", theme.bold("IDA MCP"))}`,
+                `${icon} ${theme.fg("accent", theme.bold("Hex-Rays IDA MCP"))}`,
                 theme.fg(current.state === "error" ? "error" : "muted", label),
               ].join(theme.fg("dim", "  ·  "));
               const detailLines = current.details.map((line) =>
@@ -261,7 +261,7 @@ export default function idaNexus(pi: ExtensionAPI) {
             name: piToolName,
             label: tool.annotations?.title ?? `IDA ${tool.name}`,
             description:
-              tool.description ?? `Call the IDA MCP ${tool.name} tool`,
+              tool.description ?? `Call the Hex-Rays IDA MCP ${tool.name} tool`,
             // MCP and Pi both use JSON Schema for tool inputs. The SDK's type is
             // structurally compatible, but it is not branded as a TypeBox schema.
             parameters: tool.inputSchema as unknown as Parameters<
@@ -277,7 +277,7 @@ export default function idaNexus(pi: ExtensionAPI) {
             },
             async execute(_id, params, signal, onUpdate, ctx) {
               if (!client)
-                throw new Error("The IDA MCP server is not connected");
+                throw new Error("The Hex-Rays IDA MCP server is not connected");
 
               const sessionPath = ctx.sessionManager.getSessionFile();
               const result = await client.callTool(
@@ -298,7 +298,7 @@ export default function idaNexus(pi: ExtensionAPI) {
                       content: [
                         {
                           type: "text",
-                          text: `IDA MCP progress: ${progress.progress}${total}`,
+                          text: `Hex-Rays IDA MCP progress: ${progress.progress}${total}`,
                         },
                       ],
                       details: {},
@@ -383,8 +383,8 @@ export default function idaNexus(pi: ExtensionAPI) {
 
       const message = error instanceof Error ? error.message : String(error);
       const logContents = capturedStderr
-        ? `IDA MCP failed to start: ${message}\n\n${capturedStderr}`
-        : `IDA MCP failed to start: ${message}\n`;
+        ? `Hex-Rays IDA MCP failed to start: ${message}\n\n${capturedStderr}`
+        : `Hex-Rays IDA MCP failed to start: ${message}\n`;
       const logPath = await saveStartupLog(logContents);
       const details = [message, ...(logPath ? [`Log: ${logPath}`] : [])];
       showStatus(ctx, "error", details);

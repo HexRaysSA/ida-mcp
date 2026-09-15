@@ -1,7 +1,7 @@
 {
   "name": "ida-mcp",
   "version": "0.10.4",
-  "description": "Official IDA MCP server.",
+  "description": "Official Hex-Rays IDA MCP Server.",
   "mcpServers": {
     "ida": {
       "command": "uv",

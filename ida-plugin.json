@@ -6,7 +6,7 @@
     "categories": ["api-scripting-and-automation"],
     "keywords": ["python", "automation", "mcp", "ai"],
     "description": "Expose IDA GUI databases through IDA Nexus for the official IDA MCP server.",
-    "idaVersions": ["9.4", "10.0"],
+    "idaVersions": ["9.4", "9.5"],
     "version": "0.10.4",
     "license": "MIT",
     "authors": [
