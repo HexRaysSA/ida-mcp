@@ -1,6 +1,6 @@
 {
   "name": "ida-mcp",
-  "version": "0.10.4",
+  "version": "2026.915.1",
   "description": "Official Hex-Rays IDA MCP Server.",
   "mcpServers": {
     "ida": {
