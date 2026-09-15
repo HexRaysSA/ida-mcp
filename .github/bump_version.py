@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 """Keep every ida-mcp package and plugin version declaration in sync.
 
-The release workflow calls this script with one of ``dev``, ``release-patch``,
-or ``release-minor``. An exact version can also be supplied for local use.
+Versions are calendar based: ``yyyy.mmdd.rev``, for example ``2026.915.1`` for
+the first release on 2026-09-15. The day is spelled without a leading zero so
+the same string is a valid PEP 440 release and a valid semantic version.
+
+The release workflow calls this script with ``--bump``, which derives today's
+date in UTC and picks the next unused revision for that day. An exact version
+can also be supplied for local use.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -17,10 +24,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "ida-mcp"
+TAG_PREFIX = "v"
 VERSION_RE = re.compile(
-    r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
-    r"(?:(?:-dev\.|\.dev)(?P<dev>[1-9]\d*))?$"
+    r"^(?P<year>[1-9]\d{3})\.(?P<date>[1-9]\d{2,3})\.(?P<rev>[1-9]\d*)$"
 )
+# Versions released before the calendar scheme (0.10.4 and friends) still have
+# to be recognised well enough to be replaced in the managed files.
+CURRENT_VERSION_RE = re.compile(r"^[0-9][0-9A-Za-z.+-]*$")
 
 # JSON pointers and occurrence counts are explicit so dependency versions in
 # package-lock.json are never changed accidentally.
@@ -68,7 +78,7 @@ def _current_version(pyproject_text: str) -> str:
         version = tomllib.loads(pyproject_text)["project"]["version"]
     except (KeyError, tomllib.TOMLDecodeError) as exc:
         raise VersionError("pyproject.toml: missing project.version") from exc
-    if not isinstance(version, str) or VERSION_RE.fullmatch(version) is None:
+    if not isinstance(version, str) or CURRENT_VERSION_RE.fullmatch(version) is None:
         raise VersionError(f"pyproject.toml: unsupported project.version {version!r}")
     return version
 
@@ -138,64 +148,70 @@ def _updated_files(old: str, new: str) -> dict[str, str]:
     return texts
 
 
-def _next_version(current: str, requested: str) -> str:
-    exact = VERSION_RE.fullmatch(requested)
-    if exact:
-        # Use one spelling across both Python and Node packaging.
-        dev = exact.group("dev")
-        base = f"{exact.group('major')}.{exact.group('minor')}.{exact.group('patch')}"
-        return f"{base}-dev.{dev}" if dev else base
-
-    aliases = {
-        "dev": "dev",
-        "patch": "patch",
-        "minor": "minor",
-        "major": "major",
-        "release-patch": "patch",
-        "release-minor": "minor",
-        "release-major": "major",
-    }
+def _validate_version(version: str) -> tuple[int, int, int]:
+    match = VERSION_RE.fullmatch(version)
+    if match is None:
+        raise VersionError(f"unsupported version {version!r}; expected yyyy.mmdd.rev")
+    year, date, rev = (int(match.group(name)) for name in ("year", "date", "rev"))
     try:
-        bump = aliases[requested]
-    except KeyError as exc:
-        raise VersionError(
-            f"unknown version {requested!r}; use dev, release-patch, release-minor, "
-            "release-major, or an exact version"
-        ) from exc
+        datetime.date(year, date // 100, date % 100)
+    except ValueError as exc:
+        raise VersionError(f"{version}: {date} is not a valid mmdd date") from exc
+    return year, date, rev
+
+
+def _released_revisions(year: int, date: int) -> set[int]:
+    """Revisions already tagged for a calendar day, so one is never reused."""
+    try:
+        result = subprocess.run(
+            ["git", "tag", "--list", f"{TAG_PREFIX}{year}.{date}.*"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise VersionError(f"unable to list existing tags: {exc}") from exc
+
+    revisions = set()
+    for tag in result.stdout.split():
+        match = VERSION_RE.fullmatch(tag.removeprefix(TAG_PREFIX))
+        if match is not None:
+            revisions.add(int(match.group("rev")))
+    return revisions
+
+
+def _next_version(current: str, today: datetime.date) -> str:
+    year, date = today.year, today.month * 100 + today.day
+    revisions = _released_revisions(year, date)
 
     match = VERSION_RE.fullmatch(current)
-    assert match is not None
-    major, minor, patch = (
-        int(match.group(name)) for name in ("major", "minor", "patch")
-    )
-    dev = match.group("dev")
-    if bump == "dev":
-        if dev is None:
-            patch += 1
-            dev_number = 1
-        else:
-            dev_number = int(dev) + 1
-        return f"{major}.{minor}.{patch}-dev.{dev_number}"
-    if bump == "patch":
-        if dev is None:
-            patch += 1
-        return f"{major}.{minor}.{patch}"
-    if bump == "minor":
-        return f"{major}.{minor + 1}.0"
-    return f"{major + 1}.0.0"
+    if match is not None:
+        current_year, current_date, current_rev = _validate_version(current)
+        if (current_year, current_date) > (year, date):
+            raise VersionError(
+                f"current version {current} is newer than today ({year}.{date}); "
+                "check the clock and the checked out branch"
+            )
+        if (current_year, current_date) == (year, date):
+            revisions.add(current_rev)
+
+    return f"{year}.{date}.{max(revisions, default=0) + 1}"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "version", nargs="?", help="exact version or dev/release-{patch,minor,major}"
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("version", nargs="?", help="exact yyyy.mmdd.rev version")
+    mode.add_argument(
+        "--bump",
+        action="store_true",
+        help="bump to the next revision for today's UTC date",
     )
-    parser.add_argument(
+    mode.add_argument(
         "--check", action="store_true", help="verify all version declarations"
     )
     args = parser.parse_args(argv)
-    if args.check == (args.version is not None):
-        parser.error("provide exactly one of VERSION or --check")
 
     try:
         pyproject_text = _read("pyproject.toml")
@@ -206,7 +222,12 @@ def main(argv: list[str] | None = None) -> int:
             print(current)
             return 0
 
-        new = _next_version(current, args.version)
+        if args.bump:
+            new = _next_version(current, datetime.datetime.now(datetime.UTC).date())
+        else:
+            new = args.version
+            _validate_version(new)
+
         texts = _updated_files(current, new)
         for path, text in texts.items():
             (ROOT / path).write_text(text, encoding="utf-8")

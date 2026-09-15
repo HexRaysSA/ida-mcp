@@ -7,7 +7,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
-    "ida-nexus>=0.10.3",
+    "ida-nexus>=0.11.1",
 ]
 
 [project.scripts]
@@ -18,8 +18,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-only-include = [
-    "ida-plugin.json",
-    "ida_mcp_plugin.py",
-    "ida_mcp",
-]
+only-include = ["ida_mcp"]

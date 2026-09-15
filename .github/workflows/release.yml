@@ -1,22 +1,9 @@
 name: Release
 
-run-name: ${{ github.event.inputs.release_type == 'dev' && 'Pre-Release Version Bump' || github.event.inputs.release_type == 'release-current' && 'Release Current Version' || format('Release Version Bump ({0})', github.event.inputs.release_type) }}
+run-name: Release new version
 
 on:
   workflow_dispatch:
-    inputs:
-      release_type:
-        description: Select release type
-        required: true
-        type: choice
-        options:
-          - release-current
-          - dev
-          - release-patch
-          - release-minor
-          # Major releases require deliberate coordination.
-          # - release-major
-        default: dev
 
 concurrency:
   group: release-${{ github.ref }}
@@ -31,11 +18,10 @@ jobs:
   publish:
     name: Publish GitHub release
     runs-on: ubuntu-latest
-    # TODO: Enable the PyPI environment after the ida-mcp package name is owned.
-    # environment: pypi
+    environment: pypi
     permissions:
       contents: write
-      # id-token: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,22 +42,11 @@ jobs:
       - name: Bump every package and plugin version
         id: version
         run: |
-          if [[ "$RELEASE_TYPE" == "release-current" ]]; then
-            VERSION=$(uv run --no-project python .github/bump_version.py --check)
-          else
-            VERSION=$(uv run --no-project python .github/bump_version.py "$RELEASE_TYPE")
-            uv run --no-project python .github/bump_version.py --check
-          fi
+          VERSION=$(uv run --no-project python .github/bump_version.py --bump)
+          uv run --no-project python .github/bump_version.py --check
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "$RELEASE_TYPE" == "dev" ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
           echo "Created version: $VERSION"
-        env:
-          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
 
       - name: Build distributions
         run: uv build
@@ -94,20 +69,11 @@ jobs:
             ida-plugin.json .claude-plugin/plugin.json .codex-plugin/plugin.json \
             .github/plugin/plugin.json
           git diff --cached --check
-          if [[ "$RELEASE_TYPE" == "release-current" ]]; then
-            if ! git diff --cached --quiet; then
-              echo "release-current unexpectedly changed managed files" >&2
-              git diff --cached --stat >&2
-              exit 1
-            fi
-            echo "Tagging the current commit without a version-bump commit"
-          else
-            if git diff --cached --quiet; then
-              echo "Expected a version change for $RELEASE_TYPE" >&2
-              exit 1
-            fi
-            git commit -m "$VERSION"
+          if git diff --cached --quiet; then
+            echo "Expected the version bump to change the managed files" >&2
+            exit 1
           fi
+          git commit -m "$VERSION"
           git tag "$TAG"
           gh auth setup-git
           git push --atomic origin \
@@ -118,22 +84,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
-          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
 
-      # TODO: Enable trusted publishing after the ida-mcp PyPI name is owned.
-      # - name: Publish to PyPI
-      #   run: uv publish
+      - name: Publish to PyPI
+        run: uv publish
 
       - name: Create GitHub release
         run: |
-          args=("$TAG" dist/* release-assets/* --verify-tag --generate-notes --title "$TAG")
-          if [[ "$PRERELEASE" == "true" ]]; then
-            args+=(--prerelease)
-          else
-            args+=(--latest)
-          fi
-          gh release create "${args[@]}"
+          gh release create "$TAG" dist/* release-assets/* \
+            --verify-tag --generate-notes --title "$TAG" --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
-          PRERELEASE: ${{ steps.version.outputs.prerelease }}
