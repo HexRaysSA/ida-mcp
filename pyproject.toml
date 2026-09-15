@@ -10,6 +10,10 @@ dependencies = [
     "ida-nexus>=0.11.1",
 ]
 
+[project.urls]
+Repository = "https://github.com/HexRaysSA/ida-mcp"
+Issues = "https://github.com/HexRaysSA/ida-mcp/issues"
+
 [project.scripts]
 ida-mcp = "ida_mcp.cli:main"
 
