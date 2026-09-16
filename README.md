@@ -87,6 +87,7 @@ Configure a regular stdio MCP server in your MCP JSON configuration:
       "args": [
         "--exclude-newer=1s",
         "ida-mcp",
+        "stdio",
         "--agent=my-agent"
       ]
     }
@@ -98,7 +99,58 @@ Configure a regular stdio MCP server in your MCP JSON configuration:
 configuration does not need to be updated for each release.
 
 `--agent=my-agent` is a human-chosen label (like `claude-code`, `cursor`,
-`my-custom-agent`, etc.) used to differentiate sessions in a metrics dashboard.
+`my-custom-agent`, etc.) used to differentiate sessions in the dashboard.
+
+## Commands
+
+Every invocation requires a subcommand:
+
+```bash
+# MCP server over standard input/output
+uvx ida-mcp stdio --agent=my-agent
+
+# MCP server over Streamable HTTP
+uvx ida-mcp http --host 127.0.0.1 --port 8737
+
+# Inspect semantic MCP sessions
+uvx ida-mcp dashboard --open
+
+# Export sessions, linked agent transcripts, and Nexus worker logs
+uvx ida-mcp logs
+
+# Agent integrations use these as pre-tool hooks
+uvx ida-mcp hook claude
+uvx ida-mcp hook codex
+uvx ida-mcp hook copilot
+```
+
+Semantic session files remain in the shared IDA Nexus state directory under
+`sessions/`, including when `IDA_NEXUS_STATE_DIR` overrides that directory.
+
+### Embedding
+
+The server API is available from `ida_mcp.mcp` for applications that need to
+add tools or host Streamable HTTP themselves:
+
+```python
+from ida_mcp.mcp import serve_http, stop_http_server, tool
+
+
+@tool
+def application_status() -> str:
+    """Return the embedding application's status."""
+    return "ready"
+
+
+serve_http("127.0.0.1", 8737, path_prefix="/hex-rays")
+# Later, during application shutdown:
+stop_http_server()
+```
+
+`serve_http()` also accepts a `DatabaseManager` subclass and constructor
+arguments for hosts that provide custom database resolution. See
+[the architecture documentation](docs/ARCHITECTURE.md) for lifecycle, tracing,
+and archive details.
 
 We tested the following clients, but any MCP client should work similarly:
 

@@ -28,7 +28,7 @@ const PACKAGE_VERSION = (
 // operation-specific timeouts.
 const CALL_TIMEOUT_MS = 2_147_483_647;
 const STDERR_CAPTURE_MAX_CHARS = 1024 * 1024;
-const STATUS_WIDGET_KEY = "ida-nexus:status-bar";
+const STATUS_WIDGET_KEY = "ida-mcp:status-bar";
 const STATUS_HIDE_DELAY_MS = 4000;
 const DISCOVERABLE_TOOLS_FLAG = "ida-tools-discoverable";
 
@@ -205,22 +205,25 @@ export default function idaMcp(pi: ExtensionAPI) {
     let captureStderr = true;
     const transport = new StdioClientTransport({
       command: "uv",
-      args: ["run", "--exclude-newer=1s", "ida-mcp", `--agent=${agentKind}`],
+      args: [
+        "run",
+        "--exclude-newer=1s",
+        "ida-mcp",
+        "stdio",
+        `--agent=${agentKind}`,
+      ],
       cwd: PACKAGE_ROOT,
       stderr: "pipe",
       env: {
-        ...(process.env.IDA_NEXUS_ID
-          ? { IDA_NEXUS_ID: process.env.IDA_NEXUS_ID }
+        ...(process.env.IDA_MCP_ID
+          ? { IDA_MCP_ID: process.env.IDA_MCP_ID }
           : {}),
         ...(process.env.IDAUSR ? { IDAUSR: process.env.IDAUSR } : {}),
         ...(process.env.IDA_NEXUS_STATE_DIR
           ? { IDA_NEXUS_STATE_DIR: process.env.IDA_NEXUS_STATE_DIR }
           : {}),
-        ...(process.env.IDA_NEXUS_MCP_IDLE_TIMEOUT
-          ? {
-              IDA_NEXUS_MCP_IDLE_TIMEOUT:
-                process.env.IDA_NEXUS_MCP_IDLE_TIMEOUT,
-            }
+        ...(process.env.IDA_MCP_IDLE_TIMEOUT
+          ? { IDA_MCP_IDLE_TIMEOUT: process.env.IDA_MCP_IDLE_TIMEOUT }
           : {}),
       },
     });

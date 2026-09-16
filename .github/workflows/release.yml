@@ -48,8 +48,28 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Created version: $VERSION"
 
+      - name: Verify Python implementation
+        run: |
+          uv run pytest -q
+          uv run ruff check ida_mcp tests scripts
+          uv run ruff format --check ida_mcp tests scripts
+
+      - name: Verify TypeScript extension
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+
       - name: Build distributions
         run: uv build
+
+      - name: Verify wheel entry point
+        run: |
+          wheel=(dist/*.whl)
+          uvx --from "${wheel[0]}" ida-mcp --help >/dev/null
+          for command in stdio http dashboard logs hook; do
+            uvx --from "${wheel[0]}" ida-mcp "$command" --help >/dev/null
+          done
 
       - name: Build IDA plugin archive
         run: |
