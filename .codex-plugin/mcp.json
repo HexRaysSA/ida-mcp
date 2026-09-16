@@ -5,9 +5,15 @@
       "run",
       "--exclude-newer=1s",
       "ida-mcp",
+      "stdio",
       "--agent=codex"
     ],
     "cwd": ".",
-    "env_vars": ["IDA_NEXUS_ID", "IDAUSR", "IDA_NEXUS_STATE_DIR"]
+    "env_vars": [
+      "IDA_MCP_ID",
+      "IDA_MCP_IDLE_TIMEOUT",
+      "IDAUSR",
+      "IDA_NEXUS_STATE_DIR"
+    ]
   }
 }

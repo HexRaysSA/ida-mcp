@@ -12,7 +12,8 @@
           "--project",
           "${PLUGIN_ROOT}",
           "ida-mcp",
-          "--report-session=copilot"
+          "hook",
+          "copilot"
         ],
         "timeoutSec": 30
       }
