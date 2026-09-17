@@ -19,7 +19,7 @@
       "repository": "https://github.com/HexRaysSA/ida-mcp"
     },
     "pythonDependencies": [
-      "ida-nexus>=0.11.2"
+      "ida-nexus>=0.12.2"
     ]
   }
 }
