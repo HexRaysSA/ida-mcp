@@ -3,13 +3,14 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from ida_mcp.hooks import run_hook
 
 
-def _run(platform: str, payload: object) -> tuple[int, dict[str, object], str]:
+def _run(platform: str, payload: object) -> tuple[int, dict[str, Any], str]:
     stdout = io.StringIO()
     stderr = io.StringIO()
     result = run_hook(
@@ -92,7 +93,9 @@ def test_hook_replaces_incoming_session_path(
     tool_input = {"_meta": {key: "/tmp/previous-session", **preserved}}
     payload = {"toolArgs" if platform == "copilot" else "tool_input": tool_input}
     if reported_path is not None:
-        payload["sessionId" if platform == "copilot" else "transcript_path"] = reported_path
+        payload["sessionId" if platform == "copilot" else "transcript_path"] = (
+            reported_path
+        )
 
     result, response, error = _run(platform, payload)
     assert result == 0

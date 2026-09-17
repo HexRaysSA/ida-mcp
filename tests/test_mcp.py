@@ -20,7 +20,7 @@ def test_programmatic_http_server_builds_manager_and_uses_prefix(
     created: dict[str, object] = {}
 
     class HostManager(DatabaseManager):
-        def __init__(self, host_name: str, **kwargs: object) -> None:
+        def __init__(self, host_name: str, **kwargs: Any) -> None:
             created.update(kwargs)
             created["host_name"] = host_name
             super().__init__(**kwargs)
@@ -527,7 +527,9 @@ def test_mcp_execute_schema_exposes_numeric_timeout_default() -> None:
 
 
 @pytest.mark.parametrize("agent", ["codex", "future_agent", None, ""])
-def test_mcp_session_fields_filter_paths_by_configured_agent(monkeypatch, agent) -> None:
+def test_mcp_session_fields_filter_paths_by_configured_agent(
+    monkeypatch, agent
+) -> None:
     monkeypatch.setenv("IDA_MCP_ID", "process-mcp-id")
     monkeypatch.setattr(mcp_api, "TRACE", Mock())
     monkeypatch.setattr(mcp_api, "_TRACE_STARTED", False)

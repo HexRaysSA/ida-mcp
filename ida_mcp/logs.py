@@ -196,9 +196,7 @@ def _agent_references(path: Path) -> list[_AgentReference]:
         if (kind, value) in seen:
             continue
         seen.add((kind, value))
-        references.append(
-            _AgentReference(kind, value, _find_agent_file(value, path))
-        )
+        references.append(_AgentReference(kind, value, _find_agent_file(value, path)))
 
     # OMP stores delegated sessions beside ``parent.jsonl`` in
     # ``parent/*.jsonl``. Include the whole delegation group, including agents

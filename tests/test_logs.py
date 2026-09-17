@@ -102,7 +102,9 @@ def _dashboard_archive(view):
 
 @pytest.mark.parametrize("agent", ["codex", "future_agent", None, "", 42])
 @pytest.mark.parametrize("has_startup", [True, False])
-def test_consumers_follow_only_configured_agent(tmp_path, monkeypatch, agent, has_startup):
+def test_consumers_follow_only_configured_agent(
+    tmp_path, monkeypatch, agent, has_startup
+):
     paths = {
         kind: tmp_path / "agents" / f"{kind}.jsonl"
         for kind in ("codex", "future_agent", "other_agent")
