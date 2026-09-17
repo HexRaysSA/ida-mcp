@@ -24,6 +24,8 @@ def _report_claude_session(payload: dict[str, object]) -> dict[str, object]:
     transcript_path = payload.get("transcript_path")
     updated_input = dict(tool_input)
     updated_meta = dict(existing_meta)
+    updated_meta.pop("claude_session_path", None)
+    updated_input.pop("_meta", None)
     if isinstance(transcript_path, str) and transcript_path:
         updated_meta["claude_session_path"] = transcript_path
     if updated_meta:
@@ -51,6 +53,8 @@ def _report_codex_session(payload: dict[str, object]) -> dict[str, object]:
     transcript_path = payload.get("transcript_path")
     updated_input = dict(tool_input)
     updated_meta = dict(existing_meta)
+    updated_meta.pop("codex_session_path", None)
+    updated_input.pop("_meta", None)
     if isinstance(transcript_path, str) and transcript_path:
         updated_meta["codex_session_path"] = transcript_path
     if updated_meta:
@@ -76,6 +80,8 @@ def _report_copilot_session(payload: dict[str, object]) -> dict[str, object]:
 
     updated_args = dict(tool_args)
     updated_meta = dict(existing_meta)
+    updated_meta.pop("copilot_session_path", None)
+    updated_args.pop("_meta", None)
     session_id = payload.get("sessionId")
     if isinstance(session_id, str) and session_id:
         configured_home = os.environ.get("COPILOT_HOME")

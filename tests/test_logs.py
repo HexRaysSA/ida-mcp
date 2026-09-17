@@ -5,6 +5,8 @@ import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 
+import pytest
+
 from ida_mcp import dashboard
 from ida_mcp.logs import (
     ARCHIVE_FORMAT,
@@ -98,6 +100,55 @@ def _dashboard_archive(view):
         dashboard._AGENT_ITEMS_CACHE.clear()
 
 
+@pytest.mark.parametrize("agent", ["codex", "future_agent", None, "", 42])
+@pytest.mark.parametrize("has_startup", [True, False])
+def test_consumers_follow_only_configured_agent(tmp_path, monkeypatch, agent, has_startup):
+    paths = {
+        kind: tmp_path / "agents" / f"{kind}.jsonl"
+        for kind in ("codex", "future_agent", "other_agent")
+    }
+    for path in paths.values():
+        _write_jsonl(path, _pi_records())
+    linked = {f"{kind}_session_path": str(path) for kind, path in paths.items()}
+    linked["agent"] = "other_agent"  # Metadata labels do not select the agent.
+    records = _semantic_records("generic")
+    records[0]["agent"] = agent
+    records[1]["agent"] = "other_agent"  # Use the startup label, not later labels.
+    for record in records:
+        record["session"] = linked
+    if not has_startup:
+        records = records[1:]
+    session = tmp_path / "sessions" / "semantic.jsonl"
+    _write_jsonl(session, records)
+    expected = {agent: str(paths[agent])} if has_startup and agent in paths else {}
+
+    monkeypatch.setattr(dashboard, "SESSIONS_DIR", session.parent)
+    summary = dashboard._scan_sessions()[0]
+    assert summary.agent_sessions == expected
+    assert summary.agent_session_refs == set(expected.items())
+    for kind, path in paths.items():
+        if kind not in expected:
+            assert dashboard.render_agent_session(str(path)) is None
+
+    output = tmp_path / "generic.zip"
+    result = create_log_archive(output, [session])
+    assert result.agent_session_count == len(expected)
+    assert result.missing_agent_sessions == ()
+    with zipfile.ZipFile(output) as archive:
+        toc = json.loads(archive.read(TOC_NAME))
+        references = toc["sessions"][0]["agent_sessions"]
+        assert {ref["kind"]: ref["recorded_path"] for ref in references} == expected
+        for kind, path in paths.items():
+            assert (str(path) in toc["path_map"]) == (kind in expected)
+        assert sum(
+            name.startswith("agent-sessions/") for name in archive.namelist()
+        ) == len(expected)
+
+    with open_log_archive(output) as view, _dashboard_archive(view):
+        summary = dashboard._scan_sessions()[0]
+        assert set(summary.agent_sessions) == set(expected)
+
+
 class LogArchiveTests(unittest.TestCase):
     def test_archive_contains_toc_selected_sessions_and_deduplicated_agent(
         self,
@@ -138,42 +189,6 @@ class LogArchiveTests(unittest.TestCase):
                     self.assertIn(entry["archive_path"], archive.namelist())
                     self.assertEqual(len(entry["sha256"]), 64)
 
-    def test_archive_collects_conventional_paths_for_any_agent_kind(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            omp_agent = root / "agents" / "omp.jsonl"
-            future_agent = root / "agents" / "future.jsonl"
-            session = root / "sessions" / "semantic.jsonl"
-            _write_jsonl(omp_agent, _pi_records())
-            _write_jsonl(future_agent, _pi_records())
-            records = _semantic_records("generic")
-            linked = {
-                "omp_session_path": str(omp_agent),
-                "future_agent_session_path": str(future_agent),
-                "unrelated_path": str(root / "do-not-collect.jsonl"),
-            }
-            for record in records:
-                record["agent"] = "omp"
-                record["session"] = linked
-            _write_jsonl(session, records)
-
-            output = root / "generic.zip"
-            result = create_log_archive(output, [session])
-
-            self.assertEqual(result.agent_session_count, 2)
-            with zipfile.ZipFile(output) as archive:
-                toc = json.loads(archive.read(TOC_NAME))
-                references = toc["sessions"][0]["agent_sessions"]
-                self.assertEqual(
-                    {reference["kind"] for reference in references},
-                    {"omp", "future_agent"},
-                )
-                self.assertNotIn(str(root / "do-not-collect.jsonl"), toc["path_map"])
-
-            with open_log_archive(output) as view, _dashboard_archive(view):
-                summary = dashboard._scan_sessions()[0]
-                self.assertEqual(set(summary.agent_sessions), {"omp", "future_agent"})
-
     def test_archive_collects_delegated_siblings_without_mcp_calls(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -185,6 +200,7 @@ class LogArchiveTests(unittest.TestCase):
             _write_jsonl(successful_child, _pi_records())
             _write_jsonl(blocked_child, _pi_records())
             records = _semantic_records("delegated")
+            records[0]["agent"] = "omp"
             for record in records:
                 record["session"] = {"omp_session_path": str(parent)}
             _write_jsonl(session, records)

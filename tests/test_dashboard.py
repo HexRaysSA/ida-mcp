@@ -1017,7 +1017,7 @@ class SemanticSessionTests(unittest.TestCase):
                         **base,
                         "event": "mcp_started",
                         "mcp_server_id": "bench-test",
-                        "agent": "claude-code",
+                        "agent": "claude",
                         "session": {
                             "claude_session_path": "/root/.claude/nonexistent.jsonl",
                         },

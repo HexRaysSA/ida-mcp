@@ -386,14 +386,6 @@ def _summarize_session(
         mcp_id = session.get("mcp_id")
         if isinstance(mcp_id, str) and mcp_id:
             summary.mcp_id = mcp_id
-        for kind, session_path in iter_agent_session_paths(session):
-            if agent_transcript is not None:
-                session_path = str(agent_transcript)
-            else:
-                session_path = _resolve_agent_session_path(session_path, path)
-            summary.agent_sessions[kind] = session_path
-            summary.agent_session_refs.add((kind, session_path))
-
         event = record.get("event")
         if event == "mcp_started":
             agent = record.get("agent")
@@ -411,6 +403,13 @@ def _summarize_session(
             _add_target(summary, record.get("target"))
         if event == "tool_result":
             _add_target(summary, record.get("output"))
+    for kind, session_path in iter_agent_session_paths(records):
+        if agent_transcript is not None:
+            session_path = str(agent_transcript)
+        else:
+            session_path = _resolve_agent_session_path(session_path, path)
+        summary.agent_sessions[kind] = session_path
+        summary.agent_session_refs.add((kind, session_path))
     return summary
 
 

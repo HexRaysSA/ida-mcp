@@ -526,24 +526,36 @@ def test_mcp_execute_schema_exposes_numeric_timeout_default() -> None:
     }
 
 
-def test_mcp_session_fields_retain_all_request_metadata(monkeypatch) -> None:
-    monkeypatch.setenv("IDA_MCP_ID", "trusted-mcp-id")
+@pytest.mark.parametrize("agent", ["codex", "future_agent", None, ""])
+def test_mcp_session_fields_filter_paths_by_configured_agent(monkeypatch, agent) -> None:
+    monkeypatch.setenv("IDA_MCP_ID", "process-mcp-id")
+    monkeypatch.setattr(mcp_api, "TRACE", Mock())
+    monkeypatch.setattr(mcp_api, "_TRACE_STARTED", False)
+    monkeypatch.setattr(mcp_api, "_OPERATION_LABEL", "ida-mcp")
+    monkeypatch.setattr(mcp_api, "_AGENT_SESSION_PATH_FIELD", None)
+    mcp_api._start_mcp_trace("stdio", agent)
 
-    assert mcp_api._session_fields_from_meta(
-        {
-            "dsh_session_id": "session-42",
-            "future_agent_session_path": "/tmp/future-session.jsonl",
-            "future_agent": {"name": "example", "version": 1},
-            "enabled": False,
-            "mcp_id": "untrusted-mcp-id",
-        }
-    ) == {
+    metadata = {
         "dsh_session_id": "session-42",
+        "codex_session_path": "/tmp/codex-session.jsonl",
         "future_agent_session_path": "/tmp/future-session.jsonl",
+        "other_agent_session_path": "/tmp/other-session.jsonl",
         "future_agent": {"name": "example", "version": 1},
         "enabled": False,
-        "mcp_id": "trusted-mcp-id",
+        "mcp_id": "request-mcp-id",
     }
+    original = dict(metadata)
+    expected = {
+        "dsh_session_id": "session-42",
+        "future_agent": {"name": "example", "version": 1},
+        "enabled": False,
+        "mcp_id": "process-mcp-id",
+    }
+    if agent:
+        key = f"{agent}_session_path"
+        expected[key] = metadata[key]
+    assert mcp_api._session_fields_from_meta(metadata) == expected
+    assert metadata == original
 
 
 def test_mcp_trace_is_created_on_first_tool_call(tmp_path: Path, monkeypatch) -> None:
@@ -602,6 +614,7 @@ def test_mcp_session_trace_metadata(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(mcp_api, "DATABASE_MANAGER", manager)
     monkeypatch.setattr(mcp_api, "_TRACE_STARTED", False)
     monkeypatch.setattr(mcp_api, "_TRACE_STOPPED", False)
+    monkeypatch.setattr(mcp_api, "_AGENT_SESSION_PATH_FIELD", None)
 
     mcp_api._start_mcp_trace("stdio", "test-agent")
     assert mcp_api._OPERATION_LABEL == "test-agent"

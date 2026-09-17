@@ -199,8 +199,12 @@ _TRACE_CALL_ID: ContextVar[str | None] = ContextVar(
 
 
 def _session_fields_from_meta(meta: dict[str, Any]) -> dict[str, Any]:
-    """Retain request metadata for future agent/session integrations."""
-    fields = dict(meta)
+    """Retain metadata, accepting transcript paths only for the configured agent."""
+    fields = {
+        key: value
+        for key, value in meta.items()
+        if not key.endswith("_session_path") or key == _AGENT_SESSION_PATH_FIELD
+    }
     # The process environment is authoritative for the MCP session identity;
     # request metadata must not be able to spoof it.
     fields["mcp_id"] = os.environ.get(MCP_ID_ENVIRONMENT_VARIABLE) or None
@@ -350,15 +354,17 @@ _TRACE_LIFECYCLE_LOCK = threading.Lock()
 _TRACE_STARTED = False
 _TRACE_STOPPED = False
 _OPERATION_LABEL = "ida-mcp"
+_AGENT_SESSION_PATH_FIELD: str | None = None
 
 
 def _start_mcp_trace(transport: str, agent: str | None) -> None:
-    global _OPERATION_LABEL, _TRACE_STARTED
+    global _OPERATION_LABEL, _TRACE_STARTED, _AGENT_SESSION_PATH_FIELD
     with _TRACE_LIFECYCLE_LOCK:
         if _TRACE_STARTED:
             return
         _TRACE_STARTED = True
         _OPERATION_LABEL = agent or "ida-mcp"
+        _AGENT_SESSION_PATH_FIELD = f"{agent}_session_path" if agent else None
     TRACE.emit(
         "mcp_started",
         session=_session_fields(),

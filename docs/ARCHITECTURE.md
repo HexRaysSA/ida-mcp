@@ -80,7 +80,9 @@ contract retained by the extraction from ida-nexus.
 `IDA_MCP_ID` supplies an optional trusted process-level correlation ID.
 Agent hooks place transcript paths in hidden request metadata using the
 `<agent-kind>_session_path` convention. Embedded metadata is removed from public
-tool arguments before dispatch and copied into semantic records.
+tool arguments before dispatch and copied into semantic records. Only the
+session-path key matching the configured `--agent` is retained; without an
+agent, no session-path keys are retained. Other metadata is preserved.
 
 Unexpected database disconnection is recorded at warning level. Stdio also
 receives a best-effort MCP logging notification under `ida_mcp.database`;
@@ -91,8 +93,10 @@ Streamable HTTP tracing remains available even where transport logging is not.
 The stdlib-only dashboard reads local schema-1 traces or a validated support
 archive. It correlates tool calls with results, renders Python execution and
 errors, tracks database targets, and interleaves supported Claude, Codex,
-Copilot, Pi, and OMP transcript events. Transcript files are served only when a
-semantic session references them.
+Copilot, Pi, and OMP transcript events. The dashboard and exporter follow only
+`<agent-kind>_session_path` references matching the agent in the trace's first
+`mcp_started` record. Without a recorded agent, neither follows transcript paths.
+This check also applies to existing traces.
 
 `ida-mcp logs` writes an `ida-mcp-logs` schema-1 ZIP with
 `ida-mcp-logs.json` as its table of contents. The TOC contains checksums,

@@ -12,7 +12,7 @@ import sys
 import tempfile
 import uuid
 import zipfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -168,30 +168,37 @@ def _find_agent_file(recorded_path: str, semantic_session: Path) -> Path | None:
     return None
 
 
-def iter_agent_session_paths(session: object) -> Iterator[tuple[str, str]]:
-    """Yield ``(agent kind, path)`` pairs from conventional session metadata."""
+def iter_agent_session_paths(
+    records: Iterable[dict[str, Any]],
+) -> Iterator[tuple[str, str]]:
+    """Yield transcript references only for the agent in the first startup record."""
 
-    if not isinstance(session, dict):
-        return
-    for field, value in session.items():
-        if not isinstance(field, str) or not field.endswith(_AGENT_SESSION_PATH_SUFFIX):
+    agent = None
+    for record in records:
+        if agent is None:
+            if record.get("event") != "mcp_started":
+                continue
+            agent = record.get("agent")
+            if not isinstance(agent, str) or not agent:
+                return
+        session = record.get("session")
+        if not isinstance(session, dict):
             continue
-        kind = field[: -len(_AGENT_SESSION_PATH_SUFFIX)]
-        if kind and isinstance(value, str) and value:
-            yield kind, value
+        value = session.get(f"{agent}{_AGENT_SESSION_PATH_SUFFIX}")
+        if isinstance(value, str) and value:
+            yield agent, value
 
 
 def _agent_references(path: Path) -> list[_AgentReference]:
     references: list[_AgentReference] = []
     seen: set[tuple[str, str]] = set()
-    for record in _read_json_records(path):
-        for kind, value in iter_agent_session_paths(record.get("session")):
-            if (kind, value) in seen:
-                continue
-            seen.add((kind, value))
-            references.append(
-                _AgentReference(kind, value, _find_agent_file(value, path))
-            )
+    for kind, value in iter_agent_session_paths(_read_json_records(path)):
+        if (kind, value) in seen:
+            continue
+        seen.add((kind, value))
+        references.append(
+            _AgentReference(kind, value, _find_agent_file(value, path))
+        )
 
     # OMP stores delegated sessions beside ``parent.jsonl`` in
     # ``parent/*.jsonl``. Include the whole delegation group, including agents

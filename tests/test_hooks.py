@@ -4,6 +4,8 @@ import io
 import json
 from pathlib import Path
 
+import pytest
+
 from ida_mcp.hooks import run_hook
 
 
@@ -76,6 +78,38 @@ def test_copilot_hook_derives_session_file(monkeypatch, tmp_path: Path) -> None:
             },
         },
     }
+
+
+@pytest.mark.parametrize("platform", ["claude", "codex", "copilot"])
+@pytest.mark.parametrize("reported_path", ["session-42", "", None])
+@pytest.mark.parametrize("preserve_metadata", [True, False])
+def test_hook_replaces_incoming_session_path(
+    monkeypatch, tmp_path: Path, platform, reported_path, preserve_metadata
+) -> None:
+    monkeypatch.setenv("COPILOT_HOME", str(tmp_path))
+    key = f"{platform}_session_path"
+    preserved = {"existing": True} if preserve_metadata else {}
+    tool_input = {"_meta": {key: "/tmp/previous-session", **preserved}}
+    payload = {"toolArgs" if platform == "copilot" else "tool_input": tool_input}
+    if reported_path is not None:
+        payload["sessionId" if platform == "copilot" else "transcript_path"] = reported_path
+
+    result, response, error = _run(platform, payload)
+    assert result == 0
+    assert error == ""
+    if platform == "copilot":
+        updated = response["modifiedArgs"]
+    else:
+        updated = response["hookSpecificOutput"]["updatedInput"]
+    expected = dict(preserved)
+    if reported_path:
+        expected[key] = (
+            str(tmp_path / "session-state" / reported_path / "events.jsonl")
+            if platform == "copilot"
+            else reported_path
+        )
+    assert updated == ({"_meta": expected} if expected else {})
+    assert tool_input["_meta"][key] == "/tmp/previous-session"
 
 
 def test_hook_rejects_non_object_input() -> None:
