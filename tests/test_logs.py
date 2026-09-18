@@ -50,6 +50,30 @@ def _semantic_records(session_id: str, agent_path: Path | None = None) -> list[d
     ]
 
 
+def _lifecycle_records(session_id: str, agent_path: Path | None = None) -> list[dict]:
+    """A client that connected and disconnected without calling a tool."""
+    session = {"pi_session_path": str(agent_path)} if agent_path is not None else {}
+    return [
+        {
+            "schema": 1,
+            "ts": "2026-01-01T00:00:00+00:00",
+            "event": "mcp_started",
+            "mcp_server_id": session_id,
+            "pid": 999999,
+            "agent": "pi",
+            "session": session,
+        },
+        {
+            "schema": 1,
+            "ts": "2026-01-01T00:00:01+00:00",
+            "event": "mcp_stopped",
+            "mcp_server_id": session_id,
+            "pid": 999999,
+            "session": session,
+        },
+    ]
+
+
 def _pi_records() -> list[dict]:
     return [
         {
@@ -269,6 +293,62 @@ class LogArchiveTests(unittest.TestCase):
                 self.assertEqual(
                     toc["sessions"][0]["source_path"], str(second.resolve())
                 )
+
+    def test_collection_skips_lifecycle_only_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sessions = root / "sessions"
+            active = sessions / "active.jsonl"
+            _write_jsonl(active, _semantic_records("active"))
+            _write_jsonl(sessions / "lifecycle.jsonl", _lifecycle_records("lifecycle"))
+
+            result = create_log_archive(root / "all.zip", sessions_dir=sessions)
+
+            self.assertEqual(result.session_count, 1)
+            with zipfile.ZipFile(root / "all.zip") as archive:
+                toc = json.loads(archive.read(TOC_NAME))
+                self.assertEqual(
+                    [entry["source_path"] for entry in toc["sessions"]],
+                    [str(active.resolve())],
+                )
+
+    def test_collection_keeps_a_lifecycle_session_linking_a_transcript(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sessions = root / "sessions"
+            agent_path = root / "agent" / "session.jsonl"
+            _write_jsonl(agent_path, _pi_records())
+            _write_jsonl(
+                sessions / "lifecycle.jsonl",
+                _lifecycle_records("lifecycle", agent_path),
+            )
+
+            result = create_log_archive(root / "all.zip", sessions_dir=sessions)
+
+            self.assertEqual(result.session_count, 1)
+            self.assertEqual(result.agent_session_count, 1)
+
+    def test_an_explicitly_named_lifecycle_session_is_archived(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sessions = root / "sessions"
+            lifecycle = sessions / "lifecycle.jsonl"
+            _write_jsonl(lifecycle, _lifecycle_records("lifecycle"))
+
+            result = create_log_archive(root / "one.zip", [lifecycle])
+
+            self.assertEqual(result.session_count, 1)
+
+    def test_collecting_only_lifecycle_sessions_reports_no_activity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sessions = root / "sessions"
+            _write_jsonl(sessions / "lifecycle.jsonl", _lifecycle_records("lifecycle"))
+
+            with self.assertRaises(LogArchiveError) as caught:
+                create_log_archive(root / "all.zip", sessions_dir=sessions)
+
+            self.assertIn("analysis activity", str(caught.exception))
 
     def test_missing_link_is_recorded_and_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -110,6 +110,21 @@ def _is_semantic_session(path: Path) -> bool:
     return False
 
 
+def _has_analysis_activity(path: Path) -> bool:
+    """Whether a trace records activity, matching the dashboard's filter.
+
+    A lifecycle-only trace is one where a client connected and disconnected
+    without ever calling a tool. It documents nothing an archive's reader can
+    act on, so collecting one only pads a support bundle.
+    """
+    for record in _read_json_records(path):
+        if record.get("event") == "tool_call":
+            return True
+    # A trace can still be worth archiving without a tool call of its own when
+    # it references an agent transcript, which carries the surrounding work.
+    return any(iter_agent_session_paths(_read_json_records(path)))
+
+
 def _canonical_file(path: Path, *, label: str) -> Path:
     resolved = path.expanduser().resolve()
     if not resolved.is_file():
@@ -133,11 +148,19 @@ def _select_sessions(
         directory = sessions_dir.expanduser().resolve()
         if not directory.is_dir():
             raise LogArchiveError(f"sessions directory does not exist: {directory}")
-        selected = [
+        # A collected archive holds the same sessions the dashboard shows.
+        # Explicitly named session files are always archived, because naming
+        # one is a deliberate request for that trace.
+        semantic = [
             path.resolve()
             for path in sorted(directory.glob("*.jsonl"))
             if path.is_file() and _is_semantic_session(path)
         ]
+        selected = [path for path in semantic if _has_analysis_activity(path)]
+        if semantic and not selected:
+            raise LogArchiveError(
+                "no IDA MCP semantic sessions with analysis activity found"
+            )
 
     unique = list(dict.fromkeys(selected))
     if not unique:

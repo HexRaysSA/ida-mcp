@@ -63,8 +63,10 @@ shutdown when the last lease disappears.
 ## Semantic tracing
 
 One schema-1 JSONL trace is created lazily on the first tool call. Lifecycle-only
-connections leave no file. Every record contains a timestamp, MCP server ID,
-process ID, and event. Tool calls and outcomes are paired with a `call_id`, and
+connections leave no file. Records emitted before that first call are buffered
+until it arrives, including across shutdown, so a tool call that completes after
+stdio EOF still writes the `mcp_started` record that correlation depends on.
+Every record contains a timestamp, MCP server ID, process ID, and event. Tool calls and outcomes are paired with a `call_id`, and
 database lifecycle events emitted during a call inherit that ID.
 
 The trace location intentionally remains part of the shared Nexus state layout:
@@ -99,7 +101,9 @@ Copilot, Pi, and OMP transcript events. The dashboard and exporter follow only
 This check also applies to existing traces.
 
 `ida-mcp logs` writes an `ida-mcp-logs` schema-1 ZIP with
-`ida-mcp-logs.json` as its table of contents. The TOC contains checksums,
+`ida-mcp-logs.json` as its table of contents. Collecting the local sessions
+directory archives the same traces the dashboard shows and skips lifecycle-only
+ones; an explicitly named session file is always archived. The TOC contains checksums,
 original-to-archive mappings, per-session transcript references, and missing
 references. Nexus operational logs under `<nexus-state>/logs` are included as
 supporting diagnostics but remain produced and owned by Nexus.

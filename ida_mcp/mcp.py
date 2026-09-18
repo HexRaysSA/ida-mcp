@@ -182,14 +182,19 @@ class _TraceLogger:
                 self._append(encoded)
                 return
 
+            # Buffered records are retained until a tool call activates the
+            # trace; a connection that never calls a tool writes nothing
+            # because this buffer is simply never flushed. ``mcp_stopped``
+            # must not discard it: stdio EOF stops the server while a tool
+            # call can still be in flight, and that call has to produce a
+            # complete trace instead of one missing its ``mcp_started``
+            # header, which is what carries the agent for transcript
+            # correlation.
             self._buffer.append(encoded)
             if event == "tool_call":
                 self._activate("".join(self._buffer))
                 self._buffer.clear()
                 self._active = True
-            elif event == "mcp_stopped":
-                # A connection that never called a tool leaves no session trace.
-                self._buffer.clear()
 
 
 TRACE = _TraceLogger()

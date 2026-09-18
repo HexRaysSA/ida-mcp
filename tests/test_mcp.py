@@ -598,6 +598,32 @@ def test_mcp_trace_is_discarded_without_a_tool_call(
     assert not trace.path.exists()
 
 
+def test_mcp_trace_keeps_its_header_for_a_tool_call_after_shutdown(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Stdio EOF stops the server while a tool call can still be in flight."""
+    sessions_dir = tmp_path / "sessions"
+    monkeypatch.setattr(mcp_api, "SESSIONS_DIR", sessions_dir)
+    trace = mcp_api._TraceLogger()
+
+    trace.emit("mcp_started", agent="test-agent")
+    trace.emit("mcp_initialized", clientInfo={"name": "test-client"})
+    trace.emit("mcp_stopped")
+    trace.emit("tool_call", call_id="call-1", tool="reference")
+    trace.emit("tool_result", call_id="call-1", tool="reference")
+
+    records = [json.loads(line) for line in trace.path.read_text().splitlines()]
+    assert [record["event"] for record in records] == [
+        "mcp_started",
+        "mcp_initialized",
+        "mcp_stopped",
+        "tool_call",
+        "tool_result",
+    ]
+    # Transcript correlation reads the agent from the first startup record.
+    assert records[0]["agent"] == "test-agent"
+
+
 def test_mcp_session_trace_metadata(tmp_path: Path, monkeypatch) -> None:
     class FakeTrace:
         path = tmp_path / "session.jsonl"
