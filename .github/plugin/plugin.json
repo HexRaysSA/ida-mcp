@@ -1,6 +1,6 @@
 {
   "name": "ida-mcp",
-  "version": "2026.917.2",
+  "version": "20260918.0.1",
   "description": "Official IDA MCP server for GitHub Copilot CLI.",
   "author": {
     "name": "Hex-Rays",
