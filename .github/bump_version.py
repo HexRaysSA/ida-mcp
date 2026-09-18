@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Keep every ida-mcp package and plugin version declaration in sync.
 
-Versions are calendar based: ``yyyy.mmdd.rev``, for example ``2026.915.1`` for
-the first release on 2026-09-15. The day is spelled without a leading zero so
-the same string is a valid PEP 440 release and a valid semantic version.
+Versions are calendar based: ``YYYYMMDD.0.rev``, for example ``20260915.0.1`` for
+the first release on 2026-09-15. Month and day are zero-padded inside YYYYMMDD;
+the middle component is always 0, and revisions start at 1 without leading zeros.
+The same string is a valid PEP 440 release and a valid semantic version.
 
 The release workflow calls this script with ``--bump``, which derives today's
 date in UTC and picks the next unused revision for that day. An exact version
@@ -26,9 +27,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "ida-mcp"
 TAG_PREFIX = "v"
 VERSION_RE = re.compile(
-    r"^(?P<year>[1-9]\d{3})\.(?P<date>[1-9]\d{2,3})\.(?P<rev>[1-9]\d*)$"
+    r"^(?P<year>[1-9][0-9]{3})(?P<month>[0-9]{2})(?P<day>[0-9]{2})"
+    r"\.0\.(?P<rev>[1-9][0-9]*)$"
 )
-# Versions released before the calendar scheme (0.10.4 and friends) still have
+LEGACY_VERSION_RE = re.compile(
+    r"^(?P<year>[1-9][0-9]{3})\.(?P<date>[1-9][0-9]{2,3})\."
+    r"(?P<rev>[1-9][0-9]*)$"
+)
+# Versions released before this calendar scheme (0.10.4 and friends) still have
 # to be recognised well enough to be replaced in the managed files.
 CURRENT_VERSION_RE = re.compile(r"^[0-9][0-9A-Za-z.+-]*$")
 
@@ -148,23 +154,39 @@ def _updated_files(old: str, new: str) -> dict[str, str]:
     return texts
 
 
-def _validate_version(version: str) -> tuple[int, int, int]:
+def _validate_version(version: str) -> tuple[datetime.date, int]:
     match = VERSION_RE.fullmatch(version)
     if match is None:
-        raise VersionError(f"unsupported version {version!r}; expected yyyy.mmdd.rev")
-    year, date, rev = (int(match.group(name)) for name in ("year", "date", "rev"))
+        raise VersionError(f"unsupported version {version!r}; expected YYYYMMDD.0.rev")
     try:
-        datetime.date(year, date // 100, date % 100)
+        day = datetime.date(
+            *(int(match.group(key)) for key in ("year", "month", "day"))
+        )
     except ValueError as exc:
-        raise VersionError(f"{version}: {date} is not a valid mmdd date") from exc
-    return year, date, rev
+        raise VersionError(f"{version}: invalid calendar date") from exc
+    return day, int(match.group("rev"))
 
 
-def _released_revisions(year: int, date: int) -> set[int]:
-    """Revisions already tagged for a calendar day, so one is never reused."""
+def _calendar_version(version: str) -> tuple[datetime.date, int] | None:
+    """Recognise previous calendar schemes during migration, but not 0.x releases."""
+    if VERSION_RE.fullmatch(version):
+        return _validate_version(version)
+    match = LEGACY_VERSION_RE.fullmatch(version)
+    if match is None:
+        return None
+    date = int(match.group("date"))
+    try:
+        day = datetime.date(int(match.group("year")), date // 100, date % 100)
+    except ValueError as exc:
+        raise VersionError(f"{version}: invalid legacy calendar date") from exc
+    return day, int(match.group("rev"))
+
+
+def _released_versions() -> list[str]:
+    """Read all release tags, including previous calendar schemes."""
     try:
         result = subprocess.run(
-            ["git", "tag", "--list", f"{TAG_PREFIX}{year}.{date}.*"],
+            ["git", "tag", "--list", f"{TAG_PREFIX}*"],
             cwd=ROOT,
             capture_output=True,
             check=True,
@@ -172,37 +194,36 @@ def _released_revisions(year: int, date: int) -> set[int]:
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise VersionError(f"unable to list existing tags: {exc}") from exc
-
-    revisions = set()
-    for tag in result.stdout.split():
-        match = VERSION_RE.fullmatch(tag.removeprefix(TAG_PREFIX))
-        if match is not None:
-            revisions.add(int(match.group("rev")))
-    return revisions
+    return [tag.removeprefix(TAG_PREFIX) for tag in result.stdout.split()]
 
 
 def _next_version(current: str, today: datetime.date) -> str:
-    year, date = today.year, today.month * 100 + today.day
-    revisions = _released_revisions(year, date)
-
-    match = VERSION_RE.fullmatch(current)
-    if match is not None:
-        current_year, current_date, current_rev = _validate_version(current)
-        if (current_year, current_date) > (year, date):
+    revisions = set()
+    for version in [current, *_released_versions()]:
+        parsed = _calendar_version(version)
+        if parsed is None:
+            continue
+        day, rev = parsed
+        if day > today:
             raise VersionError(
-                f"current version {current} is newer than today ({year}.{date}); "
+                f"version {version} is newer than today ({today}); "
                 "check the clock and the checked out branch"
             )
-        if (current_year, current_date) == (year, date):
-            revisions.add(current_rev)
+        if day == today:
+            revisions.add(rev)
 
-    return f"{year}.{date}.{max(revisions, default=0) + 1}"
+    new = (
+        f"{today.year:04d}{today.month:02d}{today.day:02d}.0."
+        f"{max(revisions, default=0) + 1}"
+    )
+    _validate_version(new)
+    return new
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("version", nargs="?", help="exact yyyy.mmdd.rev version")
+    mode.add_argument("version", nargs="?", help="exact YYYYMMDD.0.rev version")
     mode.add_argument(
         "--bump",
         action="store_true",
@@ -217,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
         pyproject_text = _read("pyproject.toml")
         current = _current_version(pyproject_text)
         if args.check:
+            # A checkout may still carry the last release's legacy version until
+            # CI runs --bump. Check consistency without requiring migration first.
             # Replacing a version with itself exercises every declaration validator.
             _updated_files(current, current)
             print(current)

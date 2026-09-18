@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: release-${{ github.ref }}
+  # Versions and tags are repository-wide, not branch-local.
+  group: release
   cancel-in-progress: false
 
 env:
@@ -26,6 +27,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # A queued release must start at the current branch tip, not the
+          # dispatch SHA from before the preceding release's version commit.
+          ref: ${{ github.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -51,8 +55,8 @@ jobs:
       - name: Verify Python implementation
         run: |
           uv run pytest -q
-          uv run ruff check ida_mcp tests scripts
-          uv run ruff format --check ida_mcp tests scripts
+          uv run ruff check .github/bump_version.py ida_mcp tests scripts
+          uv run ruff format --check .github/bump_version.py ida_mcp tests scripts
 
       - name: Verify TypeScript extension
         run: |
