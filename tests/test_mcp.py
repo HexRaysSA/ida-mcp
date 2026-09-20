@@ -583,19 +583,53 @@ def test_mcp_trace_is_created_on_first_tool_call(tmp_path: Path, monkeypatch) ->
     ]
 
 
+@pytest.mark.parametrize("agent", [None, "claude", "codex", "copilot", "test-agent"])
 def test_mcp_trace_is_discarded_without_a_tool_call(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, agent
 ) -> None:
     sessions_dir = tmp_path / "sessions"
     monkeypatch.setattr(mcp_api, "SESSIONS_DIR", sessions_dir)
     trace = mcp_api._TraceLogger()
 
-    trace.emit("mcp_started", agent="test-agent")
+    trace.emit("mcp_started", agent=agent)
     trace.emit("mcp_initialized", clientInfo={"name": "test-client"})
     trace.emit("mcp_stopped")
 
     assert not sessions_dir.exists()
     assert not trace.path.exists()
+
+
+@pytest.mark.parametrize("agent", ["pi", "omp"])
+def test_extension_sessions_create_distinct_logs_before_any_tool_call(
+    tmp_path: Path, monkeypatch, agent: str
+) -> None:
+    monkeypatch.setattr(mcp_api, "SESSIONS_DIR", tmp_path / "sessions")
+    monkeypatch.setattr(mcp_api, "_OPERATION_LABEL", "ida-mcp")
+    monkeypatch.setattr(mcp_api, "_AGENT_SESSION_PATH_FIELD", None)
+    paths = []
+    for _ in range(2):
+        trace = mcp_api._TraceLogger()
+        monkeypatch.setattr(mcp_api, "TRACE", trace)
+        monkeypatch.setattr(mcp_api, "_TRACE_STARTED", False)
+        mcp_api._start_mcp_trace("stdio", agent)
+        records = [json.loads(line) for line in trace.path.read_text().splitlines()]
+        assert len(records) == 1
+        assert records[0]["event"] == "mcp_started"
+        assert records[0]["agent"] == agent
+        assert records[0]["mcp_server_id"] == trace.server_id
+        assert records[0]["trace_path"] == str(trace.path)
+        trace.emit("mcp_initialized", clientInfo={"name": "ida"})
+        trace.emit("mcp_stopped")
+        paths.append(trace.path)
+
+    assert paths[0] != paths[1]
+    for path in paths:
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        assert [record["event"] for record in records] == [
+            "mcp_started",
+            "mcp_initialized",
+            "mcp_stopped",
+        ]
 
 
 def test_mcp_trace_keeps_its_header_for_a_tool_call_after_shutdown(

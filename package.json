@@ -14,6 +14,7 @@
   "repository": "https://github.com/HexRaysSA/ida-mcp.git",
   "files": [
     "ida-mcp.ts",
+    "ida-mcp-transport.ts",
     "ida-plugin.json",
     "ida_mcp_plugin.py",
     "ida_mcp/*.py",

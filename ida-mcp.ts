@@ -5,7 +5,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -18,6 +17,8 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+
+import { SessionStdioTransport } from "./ida-mcp-transport.ts";
 
 const PACKAGE_ROOT = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_VERSION = (
@@ -103,6 +104,18 @@ export default function idaMcp(pi: ExtensionAPI) {
   let startupPromise: Promise<void> | undefined;
   let pendingOmpToolRegistration: (() => void) | undefined;
   let sessionRunning = false;
+  let generation = 0;
+  let shutdownPromise: Promise<void> = Promise.resolve();
+  const closingClients = new WeakMap<Client, Promise<void>>();
+  const closeClient = (target: Client | undefined): Promise<void> => {
+    if (!target) return Promise.resolve();
+    let closing = closingClients.get(target);
+    if (!closing) {
+      closing = Promise.resolve().then(() => target.close());
+      closingClients.set(target, closing);
+    }
+    return closing;
+  };
   let statusHideTimer: NodeJS.Timeout | undefined;
   let statusWidgetMounted = false;
   let requestStatusRender: (() => void) | undefined;
@@ -196,14 +209,18 @@ export default function idaMcp(pi: ExtensionAPI) {
     }
   };
 
-  const startMcp = async (ctx: ExtensionContext): Promise<void> => {
-    if (client || connectingClient) return;
+  const startMcp = async (
+    ctx: ExtensionContext,
+    startedGeneration: number,
+  ): Promise<void> => {
+    const isCurrent = () => sessionRunning && generation === startedGeneration;
+    if (!isCurrent() || client || connectingClient) return;
 
     const next = new Client({ name: "ida", version: PACKAGE_VERSION });
     connectingClient = next;
     let capturedStderr = "";
     let captureStderr = true;
-    const transport = new StdioClientTransport({
+    const transport = new SessionStdioTransport({
       command: "uv",
       args: [
         "run",
@@ -213,7 +230,6 @@ export default function idaMcp(pi: ExtensionAPI) {
         `--agent=${agentKind}`,
       ],
       cwd: PACKAGE_ROOT,
-      stderr: "pipe",
       env: {
         ...(process.env.IDA_MCP_ID
           ? { IDA_MCP_ID: process.env.IDA_MCP_ID }
@@ -237,10 +253,14 @@ export default function idaMcp(pi: ExtensionAPI) {
     });
 
     try {
+      // Do not acquire new leases while the preceding client is still closing.
+      await shutdownPromise;
+      if (!isCurrent()) return;
       await next.connect(transport);
+      if (!isCurrent()) return;
       const { tools } = await next.listTools();
-      if (!sessionRunning || connectingClient !== next) {
-        await next.close().catch(() => undefined);
+      if (!isCurrent() || connectingClient !== next) {
+        await closeClient(next).catch(() => undefined);
         return;
       }
       client = next;
@@ -279,11 +299,13 @@ export default function idaMcp(pi: ExtensionAPI) {
               );
             },
             async execute(_id, params, signal, onUpdate, ctx) {
-              if (!client)
+              // A tool retained by an old turn/subagent must never use the
+              // replacement session's client.
+              if (!isCurrent() || client !== next)
                 throw new Error("The Hex-Rays IDA MCP server is not connected");
 
               const sessionPath = ctx.sessionManager.getSessionFile();
-              const result = await client.callTool(
+              const result = await next.callTool(
                 {
                   name: tool.name,
                   arguments: params as Record<string, unknown>,
@@ -296,6 +318,7 @@ export default function idaMcp(pi: ExtensionAPI) {
                   signal,
                   timeout: CALL_TIMEOUT_MS,
                   onprogress(progress) {
+                    if (!isCurrent()) return;
                     const total = progress.total ? `/${progress.total}` : "";
                     onUpdate?.({
                       content: [
@@ -309,6 +332,9 @@ export default function idaMcp(pi: ExtensionAPI) {
                   },
                 },
               );
+
+              if (!isCurrent())
+                throw new Error("The Hex-Rays IDA MCP session has changed");
 
               if (!Array.isArray(result.content)) {
                 return {
@@ -379,10 +405,15 @@ export default function idaMcp(pi: ExtensionAPI) {
       capturedStderr = "";
       showStatus(ctx, "ready");
     } catch (error) {
+      // Keep the retiring client discoverable by stopSession until close
+      // finishes, including if tool registration failed after connecting.
+      if (client === next) {
+        client = undefined;
+        connectingClient = next;
+      }
+      await closeClient(next).catch(() => undefined);
       if (connectingClient === next) connectingClient = undefined;
-      if (client === next) client = undefined;
-      await next.close().catch(() => undefined);
-      if (!sessionRunning) return;
+      if (!isCurrent()) return;
 
       const message = error instanceof Error ? error.message : String(error);
       const logContents = capturedStderr
@@ -390,36 +421,37 @@ export default function idaMcp(pi: ExtensionAPI) {
         : `Hex-Rays IDA MCP failed to start: ${message}\n`;
       const logPath = await saveStartupLog(logContents);
       const details = [message, ...(logPath ? [`Log: ${logPath}`] : [])];
-      showStatus(ctx, "error", details);
+      if (isCurrent()) showStatus(ctx, "error", details);
     }
   };
 
+  const waitForStartup = async (): Promise<void> => {
+    // A switch can replace the startup we are waiting on.
+    let pending: Promise<void> | undefined;
+    do {
+      pending = startupPromise;
+      await pending;
+    } while (pending !== startupPromise);
+  };
+
   const ensureOmpToolsRegistered = async (): Promise<void> => {
-    await startupPromise;
+    await waitForStartup();
     const registerTools = pendingOmpToolRegistration;
     pendingOmpToolRegistration = undefined;
     registerTools?.();
   };
 
-  pi.on("session_start", (_event, ctx) => {
+  const startSession = (ctx: ExtensionContext) => {
     if (startupPromise) return;
     sessionRunning = true;
+    const startedGeneration = ++generation;
     showStatus(ctx, "starting");
-    startupPromise = startMcp(ctx);
-  });
+    startupPromise = startMcp(ctx, startedGeneration);
+  };
 
-  pi.on("input", async () => {
-    if (agentKind === "omp") await ensureOmpToolsRegistered();
-    else await startupPromise;
-    return { action: "continue" };
-  });
-
-  pi.on("before_agent_start", async () => {
-    if (agentKind === "omp") await ensureOmpToolsRegistered();
-  });
-
-  pi.on("session_shutdown", async (_event, ctx) => {
+  const stopSession = (ctx: ExtensionContext): Promise<void> => {
     sessionRunning = false;
+    ++generation;
     clearStatusWidget(ctx);
     const active = client;
     const connecting = connectingClient;
@@ -427,9 +459,44 @@ export default function idaMcp(pi: ExtensionAPI) {
     connectingClient = undefined;
     startupPromise = undefined;
     pendingOmpToolRegistration = undefined;
-    await Promise.all([
-      active?.close(),
-      connecting && connecting !== active ? connecting.close() : undefined,
-    ]);
+    shutdownPromise = Promise.all([
+      shutdownPromise,
+      closeClient(active),
+      closeClient(connecting),
+    ]).then(() => undefined);
+    return shutdownPromise;
+  };
+
+  pi.on("session_start", (_event, ctx) => startSession(ctx));
+
+  if (agentKind === "omp") {
+    // OMP retains this extension across successful switches/branches. Pi
+    // instead tears it down via session_shutdown and reloads on session_start.
+    // These OMP-only events are not part of Pi's ExtensionAPI type.
+    const omp = pi as unknown as {
+      on(
+        event: "session_switch" | "session_branch",
+        handler: (event: unknown, ctx: ExtensionContext) => Promise<void>,
+      ): void;
+    };
+    const restartSession = (_event: unknown, ctx: ExtensionContext) => {
+      const stopped = stopSession(ctx);
+      startSession(ctx);
+      return stopped;
+    };
+    omp.on("session_switch", restartSession);
+    omp.on("session_branch", restartSession);
+  }
+
+  pi.on("input", async () => {
+    if (agentKind === "omp") await ensureOmpToolsRegistered();
+    else await waitForStartup();
+    return { action: "continue" };
   });
+
+  pi.on("before_agent_start", async () => {
+    if (agentKind === "omp") await ensureOmpToolsRegistered();
+  });
+
+  pi.on("session_shutdown", (_event, ctx) => stopSession(ctx));
 }

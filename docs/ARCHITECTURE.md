@@ -60,12 +60,37 @@ Stdio EOF, SIGINT, SIGTERM, normal interpreter exit, and explicit HTTP shutdown
 release the process's handles. Nexus performs final managed-worker save and
 shutdown when the last lease disappears.
 
+## Pi/OMP lifecycle
+
+The extension owns one stdio MCP child per active session. Pi's
+`session_shutdown`/`session_start` cycle retires and replaces it. OMP retains
+extensions across successful transitions, so `session_switch` and
+`session_branch` explicitly retire and replace the child. Cancellable
+`session_before_*` events are deliberately not used. Generation checks prevent
+stale startup completion, errors, tool registrations, or retained tool handlers
+from leaking into the replacement session.
+
+`SessionStdioTransport` closes the owned child's stdin and waits for actual
+process exit before a replacement connects. The SDK's default stdio close
+escalates to SIGKILL after roughly four seconds, which is too short for some
+IDB saves. This transport leaves operation/shutdown deadlines to the backend;
+it introduces no external PID registry, control channel, or additional tool.
+An unresponsive backend can therefore delay session replacement/shutdown rather
+than being forcibly killed mid-save.
+
+OMP `/clear` is not a session switch: the **18.2.5** release still calls
+[`resetSessionContext()`](https://github.com/can1357/oh-my-pi/blob/37273117021129e96bd05d8277b140ec3fd61990/packages/coding-agent/src/session/agent-session.ts#L5069-L5160)
+without emitting an extension reset event. It is intentionally not intercepted;
+use `/new` to retire MCP state. Other agents' lifecycle handling is unchanged.
+
 ## Semantic tracing
 
-One schema-1 JSONL trace is created lazily on the first tool call. Lifecycle-only
-connections leave no file. Records emitted before that first call are buffered
-until it arrives, including across shutdown, so a tool call that completes after
-stdio EOF still writes the `mcp_started` record that correlation depends on.
+One schema-1 JSONL trace is created at `mcp_started` for `--agent=pi` and
+`--agent=omp`, so even a fresh session with no tool calls has a log. Other agents
+remain lazy: the first tool call creates the trace, and lifecycle-only
+connections leave no file. Their preceding records are buffered until that call
+arrives, including across shutdown, so a tool call that completes after stdio
+EOF still writes the `mcp_started` record that correlation depends on.
 Every record contains a timestamp, MCP server ID, process ID, and event. Tool calls and outcomes are paired with a `call_id`, and
 database lifecycle events emitted during a call inherit that ID.
 

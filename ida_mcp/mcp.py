@@ -132,7 +132,7 @@ def _trace_jsonable(value: Any) -> Any:
 
 
 class _TraceLogger:
-    """Thread-safe semantic trace created lazily on the first tool call."""
+    """Thread-safe trace, eager for extension-owned Pi/OMP sessions."""
 
     def __init__(self) -> None:
         self.server_id = uuid.uuid4().hex[:12]
@@ -182,8 +182,9 @@ class _TraceLogger:
                 self._append(encoded)
                 return
 
-            # Buffered records are retained until a tool call activates the
-            # trace; a connection that never calls a tool writes nothing
+            # Pi/OMP own their MCP lifecycle and need a log even before the
+            # first tool call. Other agents retain lazy activation: a
+            # connection that never calls a tool writes nothing
             # because this buffer is simply never flushed. ``mcp_stopped``
             # must not discard it: stdio EOF stops the server while a tool
             # call can still be in flight, and that call has to produce a
@@ -191,7 +192,9 @@ class _TraceLogger:
             # header, which is what carries the agent for transcript
             # correlation.
             self._buffer.append(encoded)
-            if event == "tool_call":
+            if event == "tool_call" or (
+                event == "mcp_started" and fields.get("agent") in ("pi", "omp")
+            ):
                 self._activate("".join(self._buffer))
                 self._buffer.clear()
                 self._active = True
