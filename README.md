@@ -12,9 +12,25 @@ Official Hex-Rays IDA MCP Server.
   - [Git](https://git-scm.com/)
   - [uv](https://github.com/astral-sh/uv)
 - IDA 9.4 or higher with idalib and Python 3.11+
-- Other IDA MCP servers must be disabled to reduce agent confusion
+- We recommend disabling other IDA MCP servers to reduce agent confusion
 
-### IDA GUI Plugin
+### Automatic installation
+
+Install the Hex-Rays IDA MCP using [hcli](https://hcli.docs.hex-rays.com/):
+
+```bash
+uvx ida-hcli mcp install
+```
+
+This will install the GUI plugin and interactively offer you to install the supported agent plugins.
+
+### Manual installation
+
+<details>
+
+<summary>Expand manual installation details...</summary>
+
+#### IDA GUI Plugin
 
 To support IDA GUI instances when using Hex-Rays IDA MCP, install the plugin:
 
@@ -26,7 +42,7 @@ hcli plugin install https://github.com/HexRaysSA/ida-mcp
 
 _Note_: Without the GUI plugin, IDA MCP will only work headlessly.
 
-### [Claude Code](https://claude.com/product/claude-code)
+#### [Claude Code](https://claude.com/product/claude-code)
 
 ```bash
 # Add Hex-Rays marketplace
@@ -37,7 +53,7 @@ claude plugin install ida-mcp@HexRaysSA
 claude plugin update ida-mcp@HexRaysSA
 ```
 
-### [Codex CLI](https://learn.chatgpt.com/docs/codex/cli)
+#### [Codex CLI](https://learn.chatgpt.com/docs/codex/cli)
 
 ```bash
 # Add Hex-Rays marketplace
@@ -46,7 +62,7 @@ codex plugin marketplace add HexRaysSA/codex-marketplace
 codex plugin add ida-mcp@HexRaysSA
 ```
 
-### [GitHub Copilot CLI](https://github.com/features/copilot/cli)
+#### [GitHub Copilot CLI](https://github.com/features/copilot/cli)
 
 ```bash
 # Add Hex-Rays marketplace
@@ -57,7 +73,7 @@ copilot plugin install ida-mcp@HexRaysSA
 copilot plugin update ida-mcp
 ```
 
-### [Pi](https://pi.dev/)
+#### [Pi](https://pi.dev/)
 
 ```bash
 # Install extension
@@ -66,7 +82,7 @@ pi install git:github.com/HexRaysSA/ida-mcp@latest
 pi update --extensions
 ```
 
-### [oh-my-pi](https://github.com/can1357/oh-my-pi)
+#### [oh-my-pi](https://github.com/can1357/oh-my-pi)
 
 ```bash
 # Install extension
@@ -75,7 +91,7 @@ omp plugin install github:HexRaysSA/ida-mcp#latest
 omp plugin upgrade
 ```
 
-### Other agents
+#### Other agents
 
 Configure a regular stdio MCP server in your MCP JSON configuration:
 
@@ -101,6 +117,8 @@ configuration does not need to be updated for each release.
 `--agent=my-agent` is a human-chosen label (like `claude-code`, `cursor`,
 `my-custom-agent`, etc.) used to differentiate sessions in the dashboard.
 
+</details>
+
 ## Commands
 
 Every invocation requires a subcommand:
@@ -112,56 +130,18 @@ uvx ida-mcp stdio --agent=my-agent
 # MCP server over Streamable HTTP
 uvx ida-mcp http --host 127.0.0.1 --port 8737
 
-# Inspect semantic MCP sessions
+# Inspect session log
 uvx ida-mcp dashboard --open
 
-# Export sessions, linked agent transcripts, and Nexus worker logs
+# Export session logs for troubleshooting
 uvx ida-mcp logs
-
-# Agent integrations use these as pre-tool hooks
-uvx ida-mcp hook claude
-uvx ida-mcp hook codex
-uvx ida-mcp hook copilot
 ```
-
-Semantic session files remain in the shared IDA Nexus state directory under
-`sessions/`, including when `IDA_NEXUS_STATE_DIR` overrides that directory.
-
-### Embedding
-
-The server API is available from `ida_mcp.mcp` for applications that need to
-add tools or host Streamable HTTP themselves:
-
-```python
-from ida_mcp.mcp import serve_http, stop_http_server, tool
-
-
-@tool
-def application_status() -> str:
-    """Return the embedding application's status."""
-    return "ready"
-
-
-serve_http("127.0.0.1", 8737, path_prefix="/hex-rays")
-# Later, during application shutdown:
-stop_http_server()
-```
-
-`serve_http()` also accepts a `DatabaseManager` subclass and constructor
-arguments for hosts that provide custom database resolution. See
-[the architecture documentation](docs/ARCHITECTURE.md) for lifecycle, tracing,
-and archive details.
-
-We tested the following clients, but any MCP client should work similarly:
-
-- [Antigravity](https://coder.google.com/)
-- [LM Studio](https://lmstudio.ai/)
 
 ### Example Usage
 
 Start your agent harness and ask it something like:
 
-> Reverse /path/to/sample.elf for me
+> Reverse /path/to/sample.elf in IDA for me
 
 To test the GUI integration, open something in IDA and ask your harness:
 
