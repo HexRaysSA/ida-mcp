@@ -28,11 +28,11 @@ This will install the GUI plugin and interactively offer you to install the supp
 
 <details>
 
-<summary>Expand manual installation details...</summary>
+<summary>Manual installation instructions...</summary>
 
 #### IDA GUI Plugin
 
-To support IDA GUI instances when using Hex-Rays IDA MCP, install the plugin:
+To support IDA GUI instances when using IDA MCP, install the plugin:
 
 ```bash
 uvx ida-hcli plugin install https://github.com/HexRaysSA/ida-mcp
@@ -40,7 +40,7 @@ uvx ida-hcli plugin install https://github.com/HexRaysSA/ida-mcp
 hcli plugin install https://github.com/HexRaysSA/ida-mcp
 ```
 
-_Note_: Without the GUI plugin, IDA MCP will only work headlessly.
+_Note_: Without the GUI plugin, IDA MCP will still work headlessly.
 
 #### [Claude Code](https://claude.com/product/claude-code)
 
@@ -119,9 +119,7 @@ configuration does not need to be updated for each release.
 
 </details>
 
-## Commands
-
-Every invocation requires a subcommand:
+## CLI
 
 ```bash
 # MCP server over standard input/output
@@ -137,11 +135,11 @@ uvx ida-mcp dashboard --open
 uvx ida-mcp logs
 ```
 
-### Example Usage
+## Usage
 
 Start your agent harness and ask it something like:
 
-> Reverse /path/to/sample.elf in IDA for me
+> Reverse /path/to/sample.elf for me in IDA
 
 To test the GUI integration, open something in IDA and ask your harness:
 
