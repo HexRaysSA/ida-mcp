@@ -509,6 +509,9 @@ def tool(func: Callable[P, R]) -> Callable[P, R]:
     name = getattr(func, "__name__", func.__class__.__name__)
     if name in mcp.tools.methods:
         raise ValueError(f"MCP tool is already registered: {name}")
+    # ZeroMCP serves __doc__ verbatim; Python < 3.13 keeps docstring indentation.
+    if func.__doc__:
+        func.__doc__ = inspect.cleandoc(func.__doc__)
     signature = inspect.signature(func)
 
     def start_trace(

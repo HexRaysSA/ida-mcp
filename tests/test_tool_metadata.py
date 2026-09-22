@@ -7,6 +7,7 @@ Regenerate the golden file after an intentional metadata change with:
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 from io import BytesIO
@@ -70,6 +71,13 @@ def _served_metadata(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     assert initialize["serverInfo"]["version"] == mcp_api.PACKAGE_VERSION
     initialize["serverInfo"]["version"] = VERSION_PLACEHOLDER
     return {"initialize": initialize, "tools/list": responses["tools/list"]["result"]}
+
+
+def test_tool_descriptions_are_dedented(monkeypatch: pytest.MonkeyPatch) -> None:
+    tools = _served_metadata(monkeypatch)["tools/list"]["tools"]
+    for tool in tools:
+        description = tool["description"]
+        assert description == inspect.cleandoc(description), tool["name"]
 
 
 def test_mcp_metadata_matches_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
