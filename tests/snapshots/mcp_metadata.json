@@ -19,26 +19,6 @@
   "tools/list": {
     "tools": [
       {
-        "name": "reference",
-        "description": "Look up the IDA Pro ida-domain Python API by task or name, e.g.\n\"decompile function\", \"xrefs to address\", \"list strings\",\n\"rename local variable\", \"struct type\". Returns API signatures and usage\nexamples for IDA analysis via execute_python.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "Class, method, or reverse-engineering concept to look up in the IDA reference."
-            }
-          },
-          "required": [
-            "query"
-          ]
-        },
-        "title": "Search IDA API reference",
-        "annotations": {
-          "readOnlyHint": true
-        }
-      },
-      {
         "name": "open_database",
         "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.",
         "inputSchema": {
@@ -156,6 +136,26 @@
             "stderr"
           ],
           "additionalProperties": false
+        }
+      },
+      {
+        "name": "reference",
+        "description": "Look up the IDA Pro ida-domain Python API by task or name, e.g.\n\"decompile function\", \"xrefs to address\", \"list strings\",\n\"rename local variable\", \"struct type\". Returns API signatures and usage\nexamples for IDA analysis via execute_python.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Class, method, or reverse-engineering concept to look up in the IDA reference."
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "title": "Search IDA API reference",
+        "annotations": {
+          "readOnlyHint": true
         }
       },
       {

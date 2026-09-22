@@ -1,9 +1,9 @@
 """Official IDA MCP server built on the IDA Nexus library.
 
 This server exposes a compact surface for the ida-domain API:
-- reference(query): look up the active ida-domain API reference
 - open_database(...): attach to a GUI database or shared idalib worker
 - execute_python(code): run Python against an already-open database
+- reference(query): look up the active ida-domain API reference
 - list_databases(): discover registered GUI and idalib database instances
 - save_database(...): explicitly save an active database
 - close_database(...): release this MCP server's handle and lease
@@ -649,22 +649,7 @@ def _register_tool(func: Callable[P, R], metadata: ToolMetadata) -> Callable[P, 
     return mcp.tool(traced, **metadata)
 
 
-@tool(title="Search IDA API reference", read_only=True)
-def reference(
-    query: Annotated[
-        str,
-        "Class, method, or reverse-engineering concept to look up in the IDA reference.",
-    ],
-) -> str:
-    """Look up the IDA Pro ida-domain Python API by task or name, e.g.
-    "decompile function", "xrefs to address", "list strings",
-    "rename local variable", "struct type". Returns API signatures and usage
-    examples for IDA analysis via execute_python.
-    """
-
-    return lookup_reference(query)
-
-
+# Tools are served in registration order; keep the entry points first.
 class OpenDatabaseToolResult(OpenDatabaseResult):
     log_path: str
     mcp_id: str | None
@@ -788,6 +773,22 @@ async def execute_python(
             with suppress(Exception):
                 await asyncio.shield(operation)
         raise
+
+
+@tool(title="Search IDA API reference", read_only=True)
+def reference(
+    query: Annotated[
+        str,
+        "Class, method, or reverse-engineering concept to look up in the IDA reference.",
+    ],
+) -> str:
+    """Look up the IDA Pro ida-domain Python API by task or name, e.g.
+    "decompile function", "xrefs to address", "list strings",
+    "rename local variable", "struct type". Returns API signatures and usage
+    examples for IDA analysis via execute_python.
+    """
+
+    return lookup_reference(query)
 
 
 def _get_idausr_dir() -> Path:
