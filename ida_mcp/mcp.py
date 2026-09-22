@@ -38,8 +38,11 @@ from typing import (
     NoReturn,
     NotRequired,
     ParamSpec,
+    TypedDict,
     TypeVar,
+    Unpack,
     cast,
+    overload,
 )
 
 from packaging.requirements import InvalidRequirement, Requirement
@@ -510,8 +513,39 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def tool(func: Callable[P, R]) -> Callable[P, R]:
-    """Register a traced MCP tool on the process-wide Nexus server."""
+class ToolMetadata(TypedDict, total=False):
+    """Tool title and annotation hints, forwarded to ZeroMCP's ``tool()``."""
+
+    title: str
+    read_only: bool
+    destructive: bool
+    idempotent: bool
+    open_world: bool
+
+
+@overload
+def tool(func: Callable[P, R], /) -> Callable[P, R]: ...
+
+
+@overload
+def tool(
+    **metadata: Unpack[ToolMetadata],
+) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+
+def tool(
+    func: Callable[P, R] | None = None, /, **metadata: Unpack[ToolMetadata]
+) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
+    """Register a traced MCP tool on the process-wide Nexus server.
+
+    Use as ``@tool`` or ``@tool(title=..., read_only=...)``.
+    """
+    if func is None:
+        return lambda inner: _register_tool(inner, metadata)
+    return _register_tool(func, metadata)
+
+
+def _register_tool(func: Callable[P, R], metadata: ToolMetadata) -> Callable[P, R]:
     name = getattr(func, "__name__", func.__class__.__name__)
     if name in mcp.tools.methods:
         raise ValueError(f"MCP tool is already registered: {name}")
@@ -599,7 +633,7 @@ def tool(func: Callable[P, R]) -> Callable[P, R]:
             finally:
                 _TRACE_CALL_ID.reset(token)
 
-        return mcp.tool(traced_async)  # type: ignore[return-value]
+        return mcp.tool(traced_async, **metadata)  # type: ignore[return-value]
 
     @wraps(func)
     def traced(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -615,17 +649,21 @@ def tool(func: Callable[P, R]) -> Callable[P, R]:
         finally:
             _TRACE_CALL_ID.reset(token)
 
-    return mcp.tool(traced)
+    return mcp.tool(traced, **metadata)
 
 
-@tool
+@tool(title="Search IDA API reference", read_only=True)
 def reference(
     query: Annotated[
         str,
         "Class, method, or reverse-engineering concept to look up in the IDA reference.",
     ],
 ) -> str:
-    """Look up the active ida-domain API and return a plain-text IDA reference."""
+    """Look up the IDA Pro ida-domain Python API by task or name, e.g.
+    "decompile function", "xrefs to address", "list strings",
+    "rename local variable", "struct type". Returns API signatures and usage
+    examples for IDA analysis via execute_python.
+    """
 
     return lookup_reference(query)
 
@@ -636,7 +674,7 @@ class OpenDatabaseToolResult(OpenDatabaseResult):
     hint: str
 
 
-@tool
+@tool(title="Open binary in IDA")
 def open_database(
     path: Annotated[
         str,
@@ -647,7 +685,12 @@ def open_database(
         "Whether this database should become the default target for execute_python().",
     ] = True,
 ) -> OpenDatabaseToolResult:
-    """Attach to a GUI database or shared managed idalib worker through IDA Nexus."""
+    """Open (load) a binary executable, shared library, firmware image, or an
+    existing .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA
+    auto-analysis (functions, disassembly, cross references, strings) in a headless
+    idalib worker, or attaches to the file already open in the IDA GUI. Call this
+    first, then use execute_python to decompile, disassemble and query the binary.
+    """
 
     result = DATABASE_MANAGER.open_database(path, set_current=set_current)
     session = _session_fields()
@@ -663,7 +706,7 @@ def open_database(
     )
 
 
-@tool
+@tool(title="Run IDA Python analysis")
 async def execute_python(
     code: Annotated[
         str,
@@ -689,7 +732,14 @@ async def execute_python(
         ),
     ] = EXECUTE_TIMEOUT_SECONDS,
 ) -> PythonExecutionResult:
-    """Execute Python and return its result plus captured stdout and stderr."""
+    """Run Python (IDAPython and the ida-domain API) against the binary open in IDA:
+    decompile a function to Hex-Rays pseudocode, disassemble instructions, enumerate
+    functions, strings, imports, exports, segments and sections, find cross
+    references (xrefs to/from an address, callers, callees, call graph), get the
+    function at an address, inspect or apply types and structs, rename functions and
+    variables, add comments, and patch bytes. Returns the result plus stdout/stderr.
+    Look up API names with reference first.
+    """
 
     # Resolve an omitted current target once so concurrent open_database calls
     # cannot redirect cancellation to another database mid-request.
@@ -825,9 +875,11 @@ class ListDatabasesToolResult(ListDatabasesResult):
     hint: NotRequired[str]
 
 
-@tool
+@tool(title="Show open IDA databases", read_only=True)
 def list_databases() -> ListDatabasesToolResult:
-    """Discover registered GUI and idalib databases in IDA Nexus."""
+    """Show the IDA databases (analyzed binaries, .i64/.idb) currently open in the
+    IDA GUI or in headless idalib workers, with their instance ids.
+    """
     result = ListDatabasesToolResult(**DATABASE_MANAGER.list_databases())
     if not _gui_plugin_installed():
         result["hint"] = (
@@ -836,30 +888,31 @@ def list_databases() -> ListDatabasesToolResult:
     return result
 
 
-@tool
+@tool(title="Save IDA database")
 def save_database(
     instance_id: Annotated[
         str | None,
         "Optional database instance id. If omitted, save the current target.",
     ] = None,
 ) -> SaveDatabaseResult:
-    """Explicitly save an active GUI or idalib database."""
+    """Save the IDA database (.i64) to disk so renames, comments, types and patches
+    made during reverse engineering persist.
+    """
 
     return DATABASE_MANAGER.save_database(instance_id)
 
 
-@tool
+@tool(title="Release IDA database")
 def close_database(
     instance_id: Annotated[
         str | None,
         "Optional database instance id. If omitted, release the current target.",
     ] = None,
 ) -> CloseDatabaseResult:
-    """Release this MCP's IDA Nexus database handle without disrupting other clients.
-
-    If this is the final lease on a managed idalib worker, orphaned execution is
-    cancelled and this call waits for the IDB to finish closing. GUI databases are
-    never closed here.
+    """Release this session's lease on an IDA database (.i64/.idb) without
+    disrupting other clients. If this is the final lease on a managed idalib worker,
+    orphaned IDA Python execution is cancelled and this call waits for the IDB to
+    shut down. Databases open in the IDA GUI stay open.
     """
 
     return DATABASE_MANAGER.close_database(instance_id)
