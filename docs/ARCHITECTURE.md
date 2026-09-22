@@ -39,9 +39,9 @@ operations therefore do not initialize the MCP server or database manager.
 
 The process-wide ZeroMCP server exposes six tools:
 
-- `reference(query)`
 - `open_database(path, set_current=True)`
 - `execute_python(code, instance_id=None, timeout=360)`
+- `reference(query)`
 - `list_databases()`
 - `save_database(instance_id=None)`
 - `close_database(instance_id=None)`
