@@ -112,7 +112,13 @@ MCP_IDLE_TIMEOUT_SECONDS = _mcp_idle_timeout_from_environment()
 
 PACKAGE_VERSION = version("ida-mcp")
 NEXUS_PACKAGE_VERSION = version("ida-nexus")
-mcp = McpServer("ida", version=PACKAGE_VERSION)
+MCP_SERVER_INSTRUCTIONS = (
+    "IDA Pro reverse engineering of compiled binaries (ELF, PE, Mach-O, firmware): "
+    "decompile to pseudocode, disassemble, xrefs, strings, imports, types. "
+    "Use instead of objdump, readelf, nm or strings when you need decompilation "
+    "or cross-references."
+)
+mcp = McpServer("ida", version=PACKAGE_VERSION, instructions=MCP_SERVER_INSTRUCTIONS)
 
 
 def _trace_jsonable(value: Any) -> Any:

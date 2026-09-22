@@ -13,7 +13,8 @@
     "serverInfo": {
       "name": "ida",
       "version": "<package-version>"
-    }
+    },
+    "instructions": "IDA Pro reverse engineering of compiled binaries (ELF, PE, Mach-O, firmware): decompile to pseudocode, disassemble, xrefs, strings, imports, types. Use instead of objdump, readelf, nm or strings when you need decompilation or cross-references."
   },
   "tools/list": {
     "tools": [
