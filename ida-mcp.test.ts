@@ -105,3 +105,68 @@ test("OMP waits for MCP tool registration at the first agent start", async (t) =
 
   await requireHandler(handlers, "session_shutdown")({}, ctx);
 });
+
+test("tool labels prefer the MCP title over the legacy annotation title", async (t) => {
+  const originalConnect = Reflect.get(Client.prototype, "connect");
+  const originalListTools = Reflect.get(Client.prototype, "listTools");
+  const originalClose = Reflect.get(Client.prototype, "close");
+  t.after(() => {
+    Reflect.set(Client.prototype, "connect", originalConnect);
+    Reflect.set(Client.prototype, "listTools", originalListTools);
+    Reflect.set(Client.prototype, "close", originalClose);
+  });
+
+  Reflect.set(Client.prototype, "connect", async () => undefined);
+  Reflect.set(Client.prototype, "listTools", async () => ({
+    tools: [
+      {
+        name: "execute_python",
+        title: "Run IDA Python analysis",
+        annotations: { title: "Legacy title" },
+        inputSchema: { type: "object" },
+      },
+      {
+        name: "save_database",
+        annotations: { title: "Save IDA database" },
+        inputSchema: { type: "object" },
+      },
+      { name: "list_databases", inputSchema: { type: "object" } },
+    ],
+  }));
+  Reflect.set(Client.prototype, "close", async () => undefined);
+
+  const handlers = new Map<string, Handler>();
+  const labels = new Map<string, unknown>();
+  const pi = {
+    registerFlag() {},
+    getFlag() {
+      return false;
+    },
+    on(event: string, handler: Handler) {
+      handlers.set(event, handler);
+    },
+    registerTool(tool: { name: string; label: unknown }) {
+      labels.set(tool.name, tool.label);
+    },
+  } as unknown as ExtensionAPI;
+  const ctx = {
+    ui: {
+      setWidget() {},
+    },
+  };
+
+  idaMcp(pi);
+
+  requireHandler(handlers, "session_start")({}, ctx);
+  await requireHandler(handlers, "input")({}, ctx);
+  assert.deepEqual(
+    Object.fromEntries(labels),
+    {
+      ida_execute_python: "Run IDA Python analysis",
+      ida_save_database: "Save IDA database",
+      ida_list_databases: "IDA list_databases",
+    },
+  );
+
+  await requireHandler(handlers, "session_shutdown")({}, ctx);
+});
