@@ -20,7 +20,7 @@
     "tools": [
       {
         "name": "reference",
-        "description": "Look up the active ida-domain API and return a plain-text IDA reference.",
+        "description": "Look up the IDA Pro ida-domain Python API by task or name, e.g.\n\"decompile function\", \"xrefs to address\", \"list strings\",\n\"rename local variable\", \"struct type\". Returns API signatures and usage\nexamples for IDA analysis via execute_python.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -32,11 +32,15 @@
           "required": [
             "query"
           ]
+        },
+        "title": "Search IDA API reference",
+        "annotations": {
+          "readOnlyHint": true
         }
       },
       {
         "name": "open_database",
-        "description": "Attach to a GUI database or shared managed idalib worker through IDA Nexus.",
+        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -54,6 +58,7 @@
             "path"
           ]
         },
+        "title": "Open binary in IDA",
         "outputSchema": {
           "type": "object",
           "properties": {
@@ -103,7 +108,7 @@
       },
       {
         "name": "execute_python",
-        "description": "Execute Python and return its result plus captured stdout and stderr.",
+        "description": "Run Python (IDAPython and the ida-domain API) against the binary open in IDA:\ndecompile a function to Hex-Rays pseudocode, disassemble instructions, enumerate\nfunctions, strings, imports, exports, segments and sections, find cross\nreferences (xrefs to/from an address, callers, callees, call graph), get the\nfunction at an address, inspect or apply types and structs, rename functions and\nvariables, add comments, and patch bytes. Returns the result plus stdout/stderr.\nLook up API names with reference first.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -133,6 +138,7 @@
             "code"
           ]
         },
+        "title": "Run IDA Python analysis",
         "outputSchema": {
           "type": "object",
           "properties": {
@@ -154,11 +160,15 @@
       },
       {
         "name": "list_databases",
-        "description": "Discover registered GUI and idalib databases in IDA Nexus.",
+        "description": "Show the IDA databases (analyzed binaries, .i64/.idb) currently open in the\nIDA GUI or in headless idalib workers, with their instance ids.",
         "inputSchema": {
           "type": "object",
           "properties": {},
           "required": []
+        },
+        "title": "Show open IDA databases",
+        "annotations": {
+          "readOnlyHint": true
         },
         "outputSchema": {
           "type": "object",
@@ -222,7 +232,7 @@
       },
       {
         "name": "save_database",
-        "description": "Explicitly save an active GUI or idalib database.",
+        "description": "Save the IDA database (.i64) to disk so renames, comments, types and patches\nmade during reverse engineering persist.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -241,6 +251,7 @@
           },
           "required": []
         },
+        "title": "Save IDA database",
         "outputSchema": {
           "type": "object",
           "properties": {
@@ -256,7 +267,7 @@
       },
       {
         "name": "close_database",
-        "description": "Release this MCP's IDA Nexus database handle without disrupting other clients.\n\nIf this is the final lease on a managed idalib worker, orphaned execution is\ncancelled and this call waits for the IDB to finish closing. GUI databases are\nnever closed here.",
+        "description": "Release this session's lease on an IDA database (.i64/.idb) without\ndisrupting other clients. If this is the final lease on a managed idalib worker,\norphaned IDA Python execution is cancelled and this call waits for the IDB to\nshut down. Databases open in the IDA GUI stay open.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -275,6 +286,7 @@
           },
           "required": []
         },
+        "title": "Release IDA database",
         "outputSchema": {
           "type": "object",
           "properties": {

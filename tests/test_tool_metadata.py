@@ -94,3 +94,35 @@ def test_mcp_metadata_matches_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
         f"intended, regenerate it with {UPDATE_SNAPSHOTS_ENVIRONMENT_VARIABLE}=1 "
         "uv run pytest tests/test_tool_metadata.py"
     )
+
+
+def test_tool_decorator_forwards_title_and_annotations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Register on a copy so the throwaway tools never reach the shared server.
+    monkeypatch.setattr(
+        mcp_api.mcp.tools,
+        "methods",
+        dict(mcp_api.mcp.tools.methods),
+    )
+
+    @mcp_api.tool
+    def bare_tool() -> str:
+        """Bare decorator."""
+        return "bare"
+
+    @mcp_api.tool(title="Annotated tool", read_only=True)
+    def annotated_tool() -> str:
+        """Decorator with metadata."""
+        return "annotated"
+
+    assert bare_tool() == "bare"
+    assert annotated_tool() == "annotated"
+    tools = {
+        tool["name"]: tool
+        for tool in _served_metadata(monkeypatch)["tools/list"]["tools"]
+    }
+    assert "title" not in tools["bare_tool"]
+    assert "annotations" not in tools["bare_tool"]
+    assert tools["annotated_tool"]["title"] == "Annotated tool"
+    assert tools["annotated_tool"]["annotations"] == {"readOnlyHint": True}
