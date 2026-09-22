@@ -23,6 +23,7 @@ ida-mcp = "ida_mcp.cli:main"
 dev = [
     "pytest>=9.0.3",
     "ruff>=0.12.0",
+    "ty>=0.0.83",
 ]
 
 [build-system]
