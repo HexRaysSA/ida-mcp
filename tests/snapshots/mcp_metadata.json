@@ -1,0 +1,292 @@
+{
+  "initialize": {
+    "protocolVersion": "2025-11-25",
+    "capabilities": {
+      "tools": {},
+      "resources": {
+        "subscribe": false,
+        "listChanged": false
+      },
+      "prompts": {},
+      "logging": {}
+    },
+    "serverInfo": {
+      "name": "ida",
+      "version": "<package-version>"
+    }
+  },
+  "tools/list": {
+    "tools": [
+      {
+        "name": "reference",
+        "description": "Look up the active ida-domain API and return a plain-text IDA reference.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Class, method, or reverse-engineering concept to look up in the IDA reference."
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "open_database",
+        "description": "Attach to a GUI database or shared managed idalib worker through IDA Nexus.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to a local executable or IDB. A GUI instance is used when available."
+            },
+            "set_current": {
+              "type": "boolean",
+              "description": "Whether this database should become the default target for execute_python().",
+              "default": true
+            }
+          },
+          "required": [
+            "path"
+          ]
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "instance_id": {
+              "type": "string"
+            },
+            "backend": {
+              "type": "string",
+              "description": "Instance backend: gui or idalib."
+            },
+            "status": {
+              "type": "string",
+              "description": "Attachment state: attached or current."
+            },
+            "recovery": {
+              "type": "string",
+              "description": "Crash recovery performed while opening: none, repaired, or restored."
+            },
+            "log_path": {
+              "type": "string"
+            },
+            "mcp_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "hint": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "instance_id",
+            "backend",
+            "status",
+            "recovery",
+            "log_path",
+            "mcp_id",
+            "hint"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "execute_python",
+        "description": "Execute Python and return its result plus captured stdout and stderr.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "Python code that runs against an already-open database. Call reference(query) first; do not guess the API shape. `db` is the current ida-domain Database, and `ida_domain` is also imported globally. Imports, variables, and definitions persist for this agent's database lease. A single or trailing expression is returned. For function-style code, define run(db), execute(db), or main(db); it is invoked automatically when there is no trailing expression."
+            },
+            "instance_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional database instance id. If omitted, use the current target.",
+              "default": null
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Python execution timeout in seconds. This does not include the separate initial autoanalysis wait.",
+              "default": 360
+            }
+          },
+          "required": [
+            "code"
+          ]
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "result": {},
+            "stdout": {
+              "type": "string"
+            },
+            "stderr": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "result",
+            "stdout",
+            "stderr"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "list_databases",
+        "description": "Discover registered GUI and idalib databases in IDA Nexus.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "instances": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "backend": {
+                    "type": "string",
+                    "description": "Instance backend: gui or idalib."
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "Action state: available, attached, current, or unavailable."
+                  },
+                  "instance_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "error": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "path",
+                  "backend",
+                  "status",
+                  "instance_id",
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "hint": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "instances"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "save_database",
+        "description": "Explicitly save an active GUI or idalib database.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instance_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional database instance id. If omitted, save the current target.",
+              "default": null
+            }
+          },
+          "required": []
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "close_database",
+        "description": "Release this MCP's IDA Nexus database handle without disrupting other clients.\n\nIf this is the final lease on a managed idalib worker, orphaned execution is\ncancelled and this call waits for the IDB to finish closing. GUI databases are\nnever closed here.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "instance_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional database instance id. If omitted, release the current target.",
+              "default": null
+            }
+          },
+          "required": []
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "closed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "closed"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+}
