@@ -27,7 +27,7 @@ wheels = [
 
 [[package]]
 name = "ida-mcp"
-version = "20260923.0.2"
+version = "20260923.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "ida-nexus" },
