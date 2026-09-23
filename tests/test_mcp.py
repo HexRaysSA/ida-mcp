@@ -242,8 +242,10 @@ def test_mcp_execute_owns_autoanalysis_policy(monkeypatch) -> None:
             operation_id: str | None = None,
             operation_label: str | None = None,
             persist_globals: bool = False,
+            filename: str | None = None,
         ):
             assert persist_globals
+            assert filename == "<ida-mcp>"
             self.calls.append(
                 (
                     "execute_python",
@@ -411,11 +413,13 @@ def test_cancelling_queued_mcp_execution_does_not_cancel_running_request(
             operation_id: str | None = None,
             operation_label: str | None = None,
             persist_globals: bool = False,
+            filename: str | None = None,
         ) -> dict[str, object]:
             assert timeout == 360
             assert persist_globals
             assert operation_id is not None
             assert operation_label == "ida-mcp"
+            assert filename == "<ida-mcp>"
             self.operation_ids[code] = operation_id
             if code == "second":
                 self.second_waiting.set()
