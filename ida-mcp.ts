@@ -262,7 +262,9 @@ export default function idaMcp(pi: ExtensionAPI) {
           pi.registerTool({
             ...ompToolOptions,
             name: piToolName,
-            label: tool.annotations?.title ?? `IDA ${tool.name}`,
+            // The SDK negotiates 2025-11-25, where the title is top level;
+            // annotations.title is the pre-2025-06-18 location.
+            label: tool.title ?? tool.annotations?.title ?? `IDA ${tool.name}`,
             description:
               tool.description ?? `Call the Hex-Rays IDA MCP ${tool.name} tool`,
             // MCP and Pi both use JSON Schema for tool inputs. The SDK's type is
