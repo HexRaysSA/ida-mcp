@@ -2,9 +2,8 @@
 
 from typing import Any
 
-import idaapi
-
 import ida_nexus.plugin
+import idaapi
 
 
 class IDAMCPPlugin(idaapi.plugin_t):

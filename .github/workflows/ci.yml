@@ -71,7 +71,7 @@ jobs:
           uv run --locked ruff format --check .github/bump_version.py ida_mcp tests scripts
 
       - name: ty
-        run: uv run --locked ty check .github/bump_version.py ida_mcp tests scripts
+        run: uv run --locked ty check .github/bump_version.py ida_mcp ida_mcp_plugin.py tests scripts
 
   typescript:
     name: TypeScript tests and type check
