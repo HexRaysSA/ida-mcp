@@ -9,7 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
     "ida-nexus>=0.12.2",
     "packaging",
-    "zeromcp>=1.10.0",
+    "zeromcp>=1.10.3",
 ]
 
 [project.urls]
@@ -23,6 +23,7 @@ ida-mcp = "ida_mcp.cli:main"
 dev = [
     "pytest>=9.0.3",
     "ruff>=0.12.0",
+    "ty>=0.0.83",
 ]
 
 [build-system]
