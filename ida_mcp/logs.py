@@ -438,8 +438,7 @@ def create_log_archive(
                 "schema": ARCHIVE_SCHEMA,
                 "created_at": _timestamp(),
                 "sessions_roots": [
-                    str(directory.expanduser().resolve())
-                    for directory in sessions_dirs
+                    str(directory.expanduser().resolve()) for directory in sessions_dirs
                 ],
                 "sessions": [
                     {

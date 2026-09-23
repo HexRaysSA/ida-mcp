@@ -365,9 +365,7 @@ def _resolve_agent_session_path(recorded: str, trace_path: Path) -> str:
         candidate = ancestor / "session.jsonl"
         if (
             candidate.is_file()
-            and any(
-                candidate.resolve().is_relative_to(root) for root in resolved_roots
-            )
+            and any(candidate.resolve().is_relative_to(root) for root in resolved_roots)
             and candidate != trace_path
         ):
             return str(candidate)

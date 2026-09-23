@@ -17,7 +17,9 @@ os.environ["IDA_MCP_STATE_DIR"] = str(_MCP_STATE_DIR)
 
 @pytest.fixture(autouse=True)
 def clean_session_state() -> Iterator[None]:
-    dirs = [_NEXUS_STATE_DIR / name for name in ("instances", "spawn", "logs", "sessions")]
+    dirs = [
+        _NEXUS_STATE_DIR / name for name in ("instances", "spawn", "logs", "sessions")
+    ]
     dirs.append(_MCP_STATE_DIR / "sessions")
     for directory in dirs:
         shutil.rmtree(directory, ignore_errors=True)
