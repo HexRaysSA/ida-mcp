@@ -79,6 +79,31 @@ def _json_value(document: Any, pointer: tuple[str, ...], path: str) -> Any:
     return value
 
 
+def _ida_nexus_requirement(dependencies: list[str], path: str) -> str:
+    matches = [dep for dep in dependencies if dep.startswith("ida-nexus")]
+    if len(matches) != 1:
+        raise VersionError(
+            f"{path}: expected exactly one ida-nexus dependency, found {matches!r}"
+        )
+    return matches[0]
+
+
+def _check_ida_nexus_dependency(pyproject_text: str) -> None:
+    pyproject_requirement = _ida_nexus_requirement(
+        tomllib.loads(pyproject_text)["project"]["dependencies"], "pyproject.toml"
+    )
+    plugin_path = "ida-plugin.json"
+    plugin_document = json.loads(_read(plugin_path))
+    plugin_requirement = _ida_nexus_requirement(
+        plugin_document["plugin"]["pythonDependencies"], plugin_path
+    )
+    if plugin_requirement != pyproject_requirement:
+        raise VersionError(
+            f"{plugin_path}: pythonDependencies has {plugin_requirement!r}, "
+            f"expected {pyproject_requirement!r} to match pyproject.toml dependencies"
+        )
+
+
 def _current_version(pyproject_text: str) -> str:
     try:
         version = tomllib.loads(pyproject_text)["project"]["version"]
@@ -242,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
             # CI runs --bump. Check consistency without requiring migration first.
             # Replacing a version with itself exercises every declaration validator.
             _updated_files(current, current)
+            _check_ida_nexus_dependency(pyproject_text)
             print(current)
             return 0
 

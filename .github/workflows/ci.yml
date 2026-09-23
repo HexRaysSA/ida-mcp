@@ -62,6 +62,9 @@ jobs:
       - name: Install Python
         run: uv python install "$UV_PYTHON"
 
+      - name: Check version and dependency declarations
+        run: uv run --locked --no-project python .github/bump_version.py --check
+
       - name: Ruff
         run: |
           uv run --locked ruff check .github/bump_version.py ida_mcp tests scripts
