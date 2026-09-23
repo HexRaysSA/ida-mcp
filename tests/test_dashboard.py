@@ -719,13 +719,13 @@ class SemanticSessionTests(unittest.TestCase):
                 ],
             )
 
-            original = dashboard.SESSIONS_DIR
-            dashboard.SESSIONS_DIR = sessions_dir
+            original = dashboard.SESSIONS_DIRS
+            dashboard.SESSIONS_DIRS = [sessions_dir]
             dashboard._AGENT_ITEMS_CACHE.clear()
             try:
                 page = dashboard.render_session(trace.name)
             finally:
-                dashboard.SESSIONS_DIR = original
+                dashboard.SESSIONS_DIRS = original
                 dashboard._AGENT_ITEMS_CACHE.clear()
 
         assert page is not None
@@ -763,8 +763,8 @@ class SemanticSessionTests(unittest.TestCase):
 
     def test_dashboard_handler_enforces_host_policy(self) -> None:
         temporary = tempfile.TemporaryDirectory()
-        original_sessions_dir = dashboard.SESSIONS_DIR
-        dashboard.SESSIONS_DIR = Path(temporary.name)
+        original_sessions_dir = dashboard.SESSIONS_DIRS
+        dashboard.SESSIONS_DIRS = [Path(temporary.name)]
         server = dashboard.ThreadingHTTPServer(
             ("127.0.0.1", 0), dashboard.DashboardHandler
         )
@@ -790,7 +790,7 @@ class SemanticSessionTests(unittest.TestCase):
             server.shutdown()
             thread.join(2)
             server.server_close()
-            dashboard.SESSIONS_DIR = original_sessions_dir
+            dashboard.SESSIONS_DIRS = original_sessions_dir
             temporary.cleanup()
 
     def test_pid_liveness_uses_a_safe_windows_probe(self) -> None:
@@ -887,13 +887,13 @@ class SemanticSessionTests(unittest.TestCase):
                 ],
             )
 
-            original = dashboard.SESSIONS_DIR
-            dashboard.SESSIONS_DIR = sessions_dir
+            original = dashboard.SESSIONS_DIRS
+            dashboard.SESSIONS_DIRS = [sessions_dir]
             try:
                 summaries = dashboard._scan_sessions()
                 index = dashboard.render_index()
             finally:
-                dashboard.SESSIONS_DIR = original
+                dashboard.SESSIONS_DIRS = original
 
         self.assertIn("gpt-5.6", index)
         self.assertEqual(
@@ -951,15 +951,15 @@ class SemanticSessionTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            original = dashboard.SESSIONS_DIR
-            dashboard.SESSIONS_DIR = sessions_dir
+            original = dashboard.SESSIONS_DIRS
+            dashboard.SESSIONS_DIRS = [sessions_dir]
             dashboard._AGENT_ITEMS_CACHE.clear()
             try:
                 summary = dashboard._scan_sessions()[0]
                 index = dashboard.render_index()
                 transcript = dashboard.render_agent_session(str(agent_path))
             finally:
-                dashboard.SESSIONS_DIR = original
+                dashboard.SESSIONS_DIRS = original
                 dashboard._AGENT_ITEMS_CACHE.clear()
 
         self.assertEqual(summary.agent, "omp")
@@ -1031,8 +1031,8 @@ class SemanticSessionTests(unittest.TestCase):
                 ],
             )
 
-            original_dir = dashboard.SESSIONS_DIR
-            dashboard.SESSIONS_DIR = sessions_dir
+            original_dir = dashboard.SESSIONS_DIRS
+            dashboard.SESSIONS_DIRS = [sessions_dir]
             try:
                 self.assertTrue(dashboard._is_benchmark_dir(sessions_dir))
                 summaries = dashboard._scan_sessions()
@@ -1048,7 +1048,7 @@ class SemanticSessionTests(unittest.TestCase):
                     logs_dir / "session.jsonl",
                 )
             finally:
-                dashboard.SESSIONS_DIR = original_dir
+                dashboard.SESSIONS_DIRS = original_dir
 
     def test_schema_validation_rejects_non_matching_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1059,12 +1059,12 @@ class SemanticSessionTests(unittest.TestCase):
             (sessions_dir / "empty.jsonl").write_text("", encoding="utf-8")
             (sessions_dir / "bad.jsonl").write_text("not json\n", encoding="utf-8")
 
-            original = dashboard.SESSIONS_DIR
-            dashboard.SESSIONS_DIR = sessions_dir
+            original = dashboard.SESSIONS_DIRS
+            dashboard.SESSIONS_DIRS = [sessions_dir]
             try:
                 summaries = dashboard._scan_sessions()
             finally:
-                dashboard.SESSIONS_DIR = original
+                dashboard.SESSIONS_DIRS = original
 
             self.assertEqual(len(summaries), 0)
 

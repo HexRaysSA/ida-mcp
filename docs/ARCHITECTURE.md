@@ -13,7 +13,7 @@ agent / MCP client
         │
     ida_mcp.mcp
         │
-        ├─ semantic trace ──> <nexus-state>/sessions/<server-id>.jsonl
+        ├─ semantic trace ──> <mcp-state>/sessions/<server-id>.jsonl
         │
         └─ ida_nexus.DatabaseManager
                     │
@@ -69,15 +69,18 @@ stdio EOF still writes the `mcp_started` record that correlation depends on.
 Every record contains a timestamp, MCP server ID, process ID, and event. Tool calls and outcomes are paired with a `call_id`, and
 database lifecycle events emitted during a call inherit that ID.
 
-The trace location intentionally remains part of the shared Nexus state layout:
+The trace location is owned by ida-mcp, independent of ida-nexus's own state:
 
 ```text
-<IDA_NEXUS_STATE_DIR>/sessions/<mcp-server-id>.jsonl
+<IDA_MCP_STATE_DIR>/sessions/<mcp-server-id>.jsonl
 ```
 
-When `IDA_NEXUS_STATE_DIR` is unset, `ida_nexus.get_state_dir()` resolves the
-normal `<IDAUSR>/nexus` location. This location is the sole compatibility
-contract retained by the extraction from ida-nexus.
+When `IDA_MCP_STATE_DIR` is unset, this resolves to `<IDAUSR>/mcp/sessions`.
+Sessions previously lived under ida-nexus's own state directory
+(`<IDA_NEXUS_STATE_DIR>/sessions`, normally `<IDAUSR>/nexus/sessions`);
+`ida-mcp dashboard` and `ida-mcp logs` still read that legacy location too,
+joined with the current one, unless `--sessions-dir` or `--archive` narrows
+the search to a single directory.
 
 `IDA_MCP_ID` supplies an optional trusted process-level correlation ID.
 Agent hooks place transcript paths in hidden request metadata using the

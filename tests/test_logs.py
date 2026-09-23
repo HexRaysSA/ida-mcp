@@ -99,13 +99,13 @@ def _pi_records() -> list[dict]:
 @contextmanager
 def _dashboard_archive(view):
     original = (
-        dashboard.SESSIONS_DIR,
+        dashboard.SESSIONS_DIRS,
         dashboard.ARCHIVE_PATH,
         dashboard.ARCHIVE_PATH_MAP,
         dashboard.ARCHIVE_SESSION_AGENT_PATHS,
         dashboard.ARCHIVE_SOURCE_PATHS,
     )
-    dashboard.SESSIONS_DIR = view.sessions_dir
+    dashboard.SESSIONS_DIRS = [view.sessions_dir]
     dashboard.ARCHIVE_PATH = view.archive_path
     dashboard.ARCHIVE_PATH_MAP = view.path_map
     dashboard.ARCHIVE_SESSION_AGENT_PATHS = view.session_agent_paths
@@ -115,7 +115,7 @@ def _dashboard_archive(view):
         yield
     finally:
         (
-            dashboard.SESSIONS_DIR,
+            dashboard.SESSIONS_DIRS,
             dashboard.ARCHIVE_PATH,
             dashboard.ARCHIVE_PATH_MAP,
             dashboard.ARCHIVE_SESSION_AGENT_PATHS,
@@ -148,7 +148,7 @@ def test_consumers_follow_only_configured_agent(
     _write_jsonl(session, records)
     expected = {agent: str(paths[agent])} if has_startup and agent in paths else {}
 
-    monkeypatch.setattr(dashboard, "SESSIONS_DIR", session.parent)
+    monkeypatch.setattr(dashboard, "SESSIONS_DIRS", [session.parent])
     summary = dashboard._scan_sessions()[0]
     assert summary.agent_sessions == expected
     assert summary.agent_session_refs == set(expected.items())

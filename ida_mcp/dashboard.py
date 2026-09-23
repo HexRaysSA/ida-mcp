@@ -1,7 +1,8 @@
 """Web dashboard for IDA MCP semantic sessions.
 
 Serves a local HTTP UI (stdlib only, no extra dependencies) that lists the
-JSONL traces under ``<IDAUSR>/nexus/sessions`` and renders each MCP/agent
+JSONL traces under ``<IDAUSR>/mcp/sessions`` (and, for backward compatibility,
+the legacy ``<IDAUSR>/nexus/sessions`` location) and renders each MCP/agent
 session as a timeline linked to its agent transcript.
 
 Run with: ida-mcp dashboard [--host 127.0.0.1] [--port 8736] [--open]
@@ -23,19 +24,26 @@ from pathlib import Path, PureWindowsPath
 from typing import Any
 from urllib.parse import parse_qs, quote, urlparse
 
-from ida_nexus import get_state_dir
-
 from ida_mcp.logs import (
     LogArchiveError,
     iter_agent_session_paths,
     open_log_archive,
 )
+from ida_mcp.paths import (
+    default_sessions_dirs,
+    get_legacy_sessions_dir,
+    get_mcp_state_dir,
+)
 
-DEFAULT_SESSIONS_DIR = get_state_dir() / "sessions"
+DEFAULT_SESSIONS_DIR = get_mcp_state_dir() / "sessions"
+LEGACY_SESSIONS_DIR = get_legacy_sessions_dir()
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8736
 
-SESSIONS_DIR = DEFAULT_SESSIONS_DIR
+# Both the current and legacy sessions directories are scanned by default so
+# sessions recorded before the sessions folder moved remain visible; an
+# explicit --sessions-dir or --archive narrows this to a single directory.
+SESSIONS_DIRS: list[Path] = list(default_sessions_dirs())
 ARCHIVE_PATH: Path | None = None
 ARCHIVE_PATH_MAP: dict[str, Path] = {}
 ARCHIVE_SESSION_AGENT_PATHS: dict[tuple[str, str], str] = {}
@@ -352,12 +360,14 @@ def _resolve_agent_session_path(recorded: str, trace_path: Path) -> str:
         return recorded
     if Path(recorded).is_file():
         return recorded
-    resolved_root = SESSIONS_DIR.resolve()
+    resolved_roots = [directory.resolve() for directory in SESSIONS_DIRS]
     for ancestor in (trace_path.parent, trace_path.parent.parent):
         candidate = ancestor / "session.jsonl"
         if (
             candidate.is_file()
-            and candidate.resolve().is_relative_to(resolved_root)
+            and any(
+                candidate.resolve().is_relative_to(root) for root in resolved_roots
+            )
             and candidate != trace_path
         ):
             return str(candidate)
@@ -426,10 +436,12 @@ def _is_session_jsonl(path: Path) -> bool:
 
 
 def _session_route_name(path: Path) -> str:
-    try:
-        return str(path.relative_to(SESSIONS_DIR))
-    except ValueError:
-        return path.name
+    for directory in SESSIONS_DIRS:
+        try:
+            return str(path.relative_to(directory))
+        except ValueError:
+            continue
+    return path.name
 
 
 _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
@@ -460,18 +472,23 @@ def _scan_benchmark_runs(directory: Path) -> list[SessionSummary]:
     return summaries
 
 
-def _scan_sessions() -> list[SessionSummary]:
-    if not SESSIONS_DIR.is_dir():
+def _scan_session_dir(directory: Path) -> list[SessionSummary]:
+    if not directory.is_dir():
         return []
-    if _is_benchmark_dir(SESSIONS_DIR):
-        summaries = _scan_benchmark_runs(SESSIONS_DIR)
-    else:
-        summaries = [
-            summary
-            for path in sorted(SESSIONS_DIR.glob("*.jsonl"))
-            if _is_session_jsonl(path)
-            and (summary := _summarize_session(path)).has_analysis_activity
-        ]
+    if _is_benchmark_dir(directory):
+        return _scan_benchmark_runs(directory)
+    return [
+        summary
+        for path in sorted(directory.glob("*.jsonl"))
+        if _is_session_jsonl(path)
+        and (summary := _summarize_session(path)).has_analysis_activity
+    ]
+
+
+def _scan_sessions() -> list[SessionSummary]:
+    summaries: list[SessionSummary] = []
+    for directory in SESSIONS_DIRS:
+        summaries.extend(_scan_session_dir(directory))
     summaries.sort(key=lambda item: item.started or _MIN_DT, reverse=True)
     return summaries
 
@@ -672,7 +689,9 @@ def _e(value: object) -> str:
 
 
 def _source_label() -> str:
-    return str(ARCHIVE_PATH or SESSIONS_DIR)
+    if ARCHIVE_PATH is not None:
+        return str(ARCHIVE_PATH)
+    return " + ".join(str(directory) for directory in SESSIONS_DIRS)
 
 
 def _page(title: str, body: str, subtitle: str = "", standalone: bool = False) -> str:
@@ -1296,9 +1315,14 @@ def render_session(name: str, *, export: bool = False) -> str | None:
     """Render one semantic MCP session, optionally as self-contained HTML."""
     if "\\" in name or not name.endswith(".jsonl"):
         return None
-    sessions_dir = SESSIONS_DIR.resolve()
-    path = (sessions_dir / name).resolve()
-    if not path.is_relative_to(sessions_dir) or not path.is_file():
+    path: Path | None = None
+    for directory in SESSIONS_DIRS:
+        sessions_dir = directory.resolve()
+        candidate = (sessions_dir / name).resolve()
+        if candidate.is_relative_to(sessions_dir) and candidate.is_file():
+            path = candidate
+            break
+    if path is None:
         return None
     summary = _summarize_session(path)
     records = _read_jsonl(path)
@@ -2687,7 +2711,8 @@ def serve(host: str, port: int, open_browser: bool = False) -> None:
     if ARCHIVE_PATH is not None:
         print(f"sessions archive: {ARCHIVE_PATH}")
     else:
-        print(f"sessions directory: {SESSIONS_DIR}")
+        for directory in SESSIONS_DIRS:
+            print(f"sessions directory: {directory}")
     if open_browser:
         threading.Timer(0.3, webbrowser.open, args=(url,)).start()
     try:
@@ -2700,7 +2725,7 @@ def serve(host: str, port: int, open_browser: bool = False) -> None:
 
 def cli(argv: list[str] | None = None) -> int:
     global ARCHIVE_PATH, ARCHIVE_PATH_MAP, ARCHIVE_SESSION_AGENT_PATHS
-    global ARCHIVE_SOURCE_PATHS, SESSIONS_DIR
+    global ARCHIVE_SOURCE_PATHS, SESSIONS_DIRS
     parser = argparse.ArgumentParser(
         prog="ida-mcp dashboard",
         description="Web dashboard for IDA MCP semantic sessions",
@@ -2711,7 +2736,10 @@ def cli(argv: list[str] | None = None) -> int:
     source.add_argument(
         "--sessions-dir",
         type=Path,
-        help="Directory containing semantic session JSONL traces",
+        help=(
+            "Directory containing semantic session JSONL traces (default: "
+            "join the current and legacy session directories)"
+        ),
     )
     source.add_argument(
         "--archive",
@@ -2731,7 +2759,7 @@ def cli(argv: list[str] | None = None) -> int:
                 ARCHIVE_PATH_MAP = archive.path_map
                 ARCHIVE_SESSION_AGENT_PATHS = archive.session_agent_paths
                 ARCHIVE_SOURCE_PATHS = archive.source_paths
-                SESSIONS_DIR = archive.sessions_dir
+                SESSIONS_DIRS = [archive.sessions_dir]
                 _AGENT_ITEMS_CACHE.clear()
                 serve(args.host, args.port, open_browser=args.open)
         except (LogArchiveError, OSError) as exc:
@@ -2742,7 +2770,10 @@ def cli(argv: list[str] | None = None) -> int:
     ARCHIVE_PATH_MAP = {}
     ARCHIVE_SESSION_AGENT_PATHS = {}
     ARCHIVE_SOURCE_PATHS = {}
-    SESSIONS_DIR = (args.sessions_dir or DEFAULT_SESSIONS_DIR).expanduser().resolve()
+    if args.sessions_dir is not None:
+        SESSIONS_DIRS = [args.sessions_dir.expanduser().resolve()]
+    else:
+        SESSIONS_DIRS = list(default_sessions_dirs())
     _AGENT_ITEMS_CACHE.clear()
     serve(args.host, args.port, open_browser=args.open)
     return 0

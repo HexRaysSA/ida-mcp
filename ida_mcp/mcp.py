@@ -49,6 +49,8 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
+from ida_mcp.paths import STATE_DIR_ENVIRONMENT_VARIABLE, get_mcp_state_dir
+
 MCP_IDLE_TIMEOUT_ENVIRONMENT_VARIABLE = "IDA_MCP_IDLE_TIMEOUT"
 MCP_ID_ENVIRONMENT_VARIABLE = "IDA_MCP_ID"
 
@@ -56,6 +58,7 @@ MCP_ENVIRONMENT_VARIABLES = (
     MCP_ID_ENVIRONMENT_VARIABLE,
     "IDAUSR",
     "IDA_NEXUS_STATE_DIR",
+    STATE_DIR_ENVIRONMENT_VARIABLE,
     MCP_IDLE_TIMEOUT_ENVIRONMENT_VARIABLE,
 )
 
@@ -77,14 +80,13 @@ from ida_nexus import (
     PythonExecutionResult,
     RemoteError,
     SaveDatabaseResult,
-    get_state_dir,
 )
 from ida_nexus import (
     reference as lookup_reference,
 )
 from zeromcp import McpServer, McpToolError
 
-SESSIONS_DIR = get_state_dir() / "sessions"
+SESSIONS_DIR = get_mcp_state_dir() / "sessions"
 OPEN_TIMEOUT_SECONDS = 300
 EXECUTE_TIMEOUT_SECONDS = 360
 

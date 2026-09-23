@@ -21,10 +21,14 @@ from typing import Any
 
 from ida_nexus import get_state_dir
 
+from ida_mcp.paths import default_sessions_dirs, get_mcp_state_dir
+
 ARCHIVE_FORMAT = "ida-mcp-logs"
 ARCHIVE_SCHEMA = 1
 TOC_NAME = "ida-mcp-logs.json"
-DEFAULT_SESSIONS_DIR = get_state_dir() / "sessions"
+DEFAULT_SESSIONS_DIR = get_mcp_state_dir() / "sessions"
+LEGACY_SESSIONS_DIR = get_state_dir() / "sessions"
+# Nexus operational logs remain produced and owned by ida-nexus.
 DEFAULT_LOGS_DIR = get_state_dir() / "logs"
 
 _AGENT_SESSION_PATH_SUFFIX = "_session_path"
@@ -133,7 +137,7 @@ def _canonical_file(path: Path, *, label: str) -> Path:
 
 
 def _select_sessions(
-    session_files: Sequence[Path] | None, sessions_dir: Path
+    session_files: Sequence[Path] | None, sessions_dirs: Sequence[Path]
 ) -> list[Path]:
     if session_files:
         selected: list[Path] = []
@@ -145,14 +149,17 @@ def _select_sessions(
                 )
             selected.append(path)
     else:
-        directory = sessions_dir.expanduser().resolve()
-        if not directory.is_dir():
-            raise LogArchiveError(f"sessions directory does not exist: {directory}")
+        directories = [directory.expanduser().resolve() for directory in sessions_dirs]
+        existing = [directory for directory in directories if directory.is_dir()]
+        if not existing:
+            joined = ", ".join(str(directory) for directory in directories)
+            raise LogArchiveError(f"sessions directory does not exist: {joined}")
         # A collected archive holds the same sessions the dashboard shows.
         # Explicitly named session files are always archived, because naming
         # one is a deliberate request for that trace.
         semantic = [
             path.resolve()
+            for directory in existing
             for path in sorted(directory.glob("*.jsonl"))
             if path.is_file() and _is_semantic_session(path)
         ]
@@ -313,17 +320,32 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _normalize_sessions_dirs(
+    sessions_dir: Path | Sequence[Path] | None,
+) -> tuple[Path, ...]:
+    if sessions_dir is None:
+        return default_sessions_dirs()
+    if isinstance(sessions_dir, Path):
+        return (sessions_dir,)
+    return tuple(sessions_dir)
+
+
 def create_log_archive(
     output: Path,
     session_files: Sequence[Path] | None = None,
     *,
-    sessions_dir: Path = DEFAULT_SESSIONS_DIR,
+    sessions_dir: Path | Sequence[Path] | None = None,
     logs_dir: Path = DEFAULT_LOGS_DIR,
     overwrite: bool = False,
 ) -> LogArchiveResult:
-    """Create a ZIP containing semantic sessions and their linked transcripts."""
+    """Create a ZIP containing semantic sessions and their linked transcripts.
 
-    sessions = _select_sessions(session_files, sessions_dir)
+    ``sessions_dir`` accepts a single directory or a sequence of directories;
+    when omitted, the current and legacy sessions directories are joined.
+    """
+
+    sessions_dirs = _normalize_sessions_dirs(sessions_dir)
+    sessions = _select_sessions(session_files, sessions_dirs)
     output = output.expanduser().resolve()
     if output.exists() and not overwrite:
         raise LogArchiveError(f"output already exists (use --force): {output}")
@@ -415,7 +437,10 @@ def create_log_archive(
                 "format": ARCHIVE_FORMAT,
                 "schema": ARCHIVE_SCHEMA,
                 "created_at": _timestamp(),
-                "sessions_root": str(sessions_dir.expanduser().resolve()),
+                "sessions_roots": [
+                    str(directory.expanduser().resolve())
+                    for directory in sessions_dirs
+                ],
                 "sessions": [
                     {
                         "source_path": str(session.source_path),
@@ -699,8 +724,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--sessions-dir",
         type=Path,
-        default=DEFAULT_SESSIONS_DIR,
-        help="Local semantic sessions directory used when no files are given",
+        default=None,
+        help=(
+            "Local semantic sessions directory used when no files are given "
+            "(default: join the current and legacy session directories)"
+        ),
     )
     parser.add_argument(
         "--force", action="store_true", help="Replace an existing output ZIP"
