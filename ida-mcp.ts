@@ -420,18 +420,28 @@ export default function idaMcp(pi: ExtensionAPI) {
     if (agentKind === "omp") await ensureOmpToolsRegistered();
   });
 
-  pi.on("session_shutdown", async (_event, ctx) => {
-    sessionRunning = false;
-    clearStatusWidget(ctx);
-    const active = client;
-    const connecting = connectingClient;
-    client = undefined;
-    connectingClient = undefined;
-    startupPromise = undefined;
-    pendingOmpToolRegistration = undefined;
-    await Promise.all([
-      active?.close(),
-      connecting && connecting !== active ? connecting.close() : undefined,
-    ]);
-  });
+	pi.on("session_shutdown", async (_event, ctx) => {
+		sessionRunning = false;
+		clearStatusWidget(ctx);
+		const active = client;
+		const connecting = connectingClient;
+		client = undefined;
+		connectingClient = undefined;
+		startupPromise = undefined;
+		pendingOmpToolRegistration = undefined;
+		// The host caps shutdown handlers at 2s; a stuck MCP pipe must not
+		// outlive the session as an orphaned server process. Bound each close
+		// so a hung transport always settles inside the budget. The timer
+		// resolves on its own — it must NOT call close() again, or a hung
+		// first close would wedge the race on the second close too.
+		const closeSoon = (c: Client): Promise<void> =>
+			// setTimeout executor (not withResolvers): the repo typechecks at ES2022.
+			Promise.race([c.close(), new Promise<void>(resolve => setTimeout(resolve, 1500))]).catch(
+				() => undefined,
+			);
+		await Promise.all([
+			active ? closeSoon(active) : undefined,
+			connecting && connecting !== active ? closeSoon(connecting) : undefined,
+		]);
+	});
 }
