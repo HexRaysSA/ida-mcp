@@ -1,7 +1,5 @@
 # Hex-Rays IDA MCP
 
-⚠️ Experimental prerelease ⚠️
-
 Official Hex-Rays IDA MCP Server.
 
 ## Installation
@@ -20,6 +18,8 @@ Install the Hex-Rays IDA MCP using [hcli](https://hcli.docs.hex-rays.com/):
 
 ```bash
 uvx ida-hcli mcp install
+# or if you have hcli installed:
+hcli mcp install
 ```
 
 This will install the GUI plugin and interactively offer you to install the supported agent plugins.
