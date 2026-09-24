@@ -1,6 +1,6 @@
 [project]
 name = "ida-mcp"
-version = "20260924.0.2"
+version = "20260924.0.3"
 description = "Official Hex-Rays IDA MCP Server."
 readme = "README.md"
 license = "MIT"
