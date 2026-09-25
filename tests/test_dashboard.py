@@ -11,6 +11,34 @@ from ida_mcp import dashboard
 
 
 class TranscriptTests(unittest.TestCase):
+    def test_agent_page_hides_unsupported_events_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "transcript.jsonl"
+            path.touch()
+            item = dashboard.TranscriptItem(
+                None, "event", '<details class="unsupported-event">unknown</details>'
+            )
+            with (
+                mock.patch.object(
+                    dashboard, "_known_agent_sessions", return_value={str(path): []}
+                ),
+                mock.patch.object(
+                    dashboard,
+                    "_load_agent_items",
+                    return_value=([item], {}, "pi", dashboard._blank_totals()),
+                ),
+            ):
+                page = dashboard.render_agent_session(str(path))
+        assert page is not None
+        self.assertIn('<body class="hide-unsupported">', page)
+        self.assertIn("unsupported events (1)", page)
+        self.assertIn(
+            '<input type="checkbox" '
+            "onchange=\"setVisible('hide-unsupported', this.checked)\">",
+            page,
+        )
+        self.assertIn('class="unsupported-event"', page)
+
     def test_copilot_transcript_renders_messages_tools_and_usage(self) -> None:
         records = [
             {
@@ -489,6 +517,24 @@ class SessionTimelineTests(unittest.TestCase):
         self.assertIn("EntryInfo attributes", html)
         self.assertNotIn("<summary>arguments", html)
 
+    def test_open_database_call_shows_arguments_and_model_origin(self) -> None:
+        for pending in (False, True):
+            with self.subTest(pending=pending):
+                html = dashboard._render_tool_call_card(
+                    {
+                        "tool": "open_database",
+                        "input": {"path": "/tmp/<sample>", "set_current": False},
+                    },
+                    pending=pending,
+                )
+                self.assertIn("/tmp/&lt;sample&gt;", html)
+                self.assertIn("&quot;set_current&quot;: false", html)
+                self.assertNotIn("<details", html)
+                self.assertIn('class="card toolcall"', html)
+                self.assertIn('class="badge model">model tool call</span>', html)
+                state = "pending" if pending else "started"
+                self.assertIn(f'class="badge starting">{state}</span>', html)
+
     def test_database_lifecycle_event_links_to_enclosing_open_call(self) -> None:
         call_id = "open-call-id"
         events: list[str] = []
@@ -519,6 +565,8 @@ class SessionTimelineTests(unittest.TestCase):
         self.assertEqual(len(events), 3)
         lifecycle = next(event for event in events if "database_opened" in event)
         self.assertIn(f'data-call-id="{call_id}"', lifecycle)
+        self.assertIn('<span class="badge internal">internal</span>', lifecycle)
+        self.assertNotIn('class="badge model"', lifecycle)
 
 
 class SemanticSessionTests(unittest.TestCase):
@@ -730,7 +778,7 @@ class SemanticSessionTests(unittest.TestCase):
 
         assert page is not None
         call_position = page.index(
-            'execute_python <span class="badge muted">started</span>'
+            'execute_python <span class="badge starting">started</span>'
         )
         background_position = page.index("moved to the background")
         unsupported_position = page.index("queued failure notification")
@@ -745,6 +793,12 @@ class SemanticSessionTests(unittest.TestCase):
         self.assertIn('type="checkbox" checked', page)
         self.assertIn("transcript (", page)
         self.assertIn("unsupported events (1)", page)
+        self.assertIn('<body class="hide-unsupported">', page)
+        self.assertIn(
+            '<input type="checkbox" '
+            "onchange=\"setVisible('hide-unsupported', this.checked)\">",
+            page,
+        )
 
     def test_dashboard_host_policy_blocks_loopback_dns_rebinding(self) -> None:
         for host in ("localhost:8736", "127.0.0.1:8736", "[::1]:8736"):

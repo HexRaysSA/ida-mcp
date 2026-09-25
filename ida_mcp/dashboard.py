@@ -508,14 +508,14 @@ _PAGE_CSS = """
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --border: #dde1e6; --text: #1b1f24;
   --muted: #59636e; --accent: #0969da; --user: #ddf4ff; --assistant: #ffffff;
-  --code-bg: #f0f2f5; --error: #cf222e; --ok: #1a7f37;
+  --code-bg: #f0f2f5; --error: #cf222e; --ok: #1a7f37; --starting: #9a6700;
   --kw: #cf222e; --str: #0a3069; --num: #953800; --com: #59636e;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #e6edf3;
     --muted: #8d96a0; --accent: #4493f8; --user: #121d2f; --assistant: #161b22;
-    --code-bg: #0d1117; --error: #f85149; --ok: #3fb950;
+    --code-bg: #0d1117; --error: #f85149; --ok: #3fb950; --starting: #e3b341;
     --kw: #ff7b72; --str: #a5d6ff; --num: #ffa657; --com: #8d96a0;
   }
 }
@@ -566,6 +566,8 @@ table.sessions td:first-child a { word-break: break-all; }
 .badge.killed { color: var(--error); border-color: var(--error); opacity: 0.75; }
 .badge.error { color: var(--error); border-color: var(--error); }
 .badge.internal { color: var(--muted); border-style: dashed; }
+.badge.starting { color: var(--starting); border-color: var(--starting); }
+.badge.model { color: var(--accent); border-color: var(--accent); }
 .muted { color: var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   font-size: 12px; }
@@ -709,7 +711,7 @@ def _page(title: str, body: str, subtitle: str = "", standalone: bool = False) -
 <style>{_PAGE_CSS}</style>
 <script>{_PAGE_JS}</script>
 </head>
-<body>
+<body class="hide-unsupported">
 <header class="top">
   {heading_html}
   <span class="sub">{_e(sub)}</span>
@@ -928,11 +930,18 @@ def render_index() -> str:
 # --------------------------------------------------------------------------
 
 
-def _card(title: str, ts: datetime | None, body: str, extra_head: str = "") -> str:
+def _card(
+    title: str,
+    ts: datetime | None,
+    body: str,
+    extra_head: str = "",
+    *,
+    tool_call: bool = False,
+) -> str:
     ts_html = f'<span class="ts">{_e(_format_ts(ts))}</span>' if ts else ""
     body_html = f'<div class="body">{body}</div>' if body else ""
     return (
-        f'<div class="card"><div class="head">'
+        f'<div class="card{" toolcall" if tool_call else ""}"><div class="head">'
         f'<span class="title">{title}</span>{extra_head}{ts_html}</div>'
         f"{body_html}</div>"
     )
@@ -1030,17 +1039,21 @@ def _render_tool_call_card(call: dict[str, Any], *, pending: bool) -> str:
             '<div class="execution-field"><div class="name mono">query</div>'
             f'<div class="text">{_e(arguments["query"])}</div></div>'
         )
+    elif tool == "open_database":
+        parts.append(_json_block(arguments))
     else:
         parts.append(_json_block(arguments, collapsed_label="arguments"))
 
     state = "pending" if pending else "started"
-    badge = f'<span class="badge muted">{state}</span>'
+    badge = f'<span class="badge starting">{state}</span>'
     call_ts = _parse_ts(call.get("ts"))
     return _card(
         f"{_e(tool)} {badge}",
         call_ts,
         "".join(parts),
-        _call_id_badge(call.get("call_id")),
+        '<span class="badge model">model tool call</span>'
+        + _call_id_badge(call.get("call_id")),
+        tool_call=True,
     )
 
 
@@ -1130,7 +1143,7 @@ def _render_event_card(
         _e(event),
         ts,
         _json_block(details) if details else "",
-        _call_id_badge(linked_call_id),
+        '<span class="badge internal">internal</span>' + _call_id_badge(linked_call_id),
     )
 
 
@@ -1395,7 +1408,7 @@ def render_session(name: str, *, export: bool = False) -> str | None:
         )
     if unsupported_count:
         controls.append(
-            '<label><input type="checkbox" checked '
+            '<label><input type="checkbox" '
             "onchange=\"setVisible('hide-unsupported', this.checked)\"> "
             f"unsupported events ({unsupported_count})</label>"
         )
@@ -2556,7 +2569,7 @@ def render_agent_session(session_path: str) -> str | None:
         transcript_html = '<div class="empty">No renderable messages found.</div>'
 
     unsupported_control = (
-        '<label><input type="checkbox" checked '
+        '<label><input type="checkbox" '
         "onchange=\"setVisible('hide-unsupported', this.checked)\"> "
         f"unsupported events ({unsupported_count})</label>"
         if unsupported_count
