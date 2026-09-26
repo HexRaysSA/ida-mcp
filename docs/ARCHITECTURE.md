@@ -103,6 +103,16 @@ Copilot, Pi, and OMP transcript events. The dashboard and exporter follow only
 `mcp_started` record. Without a recorded agent, neither follows transcript paths.
 This check also applies to existing traces.
 
+The sortable **Task time** column after Cost estimates LLM/tool wall time from
+linked transcripts: each user prompt through its last recorded assistant or tool
+activity, excluding gaps before the next prompt. Tool-result messages are not
+new user turns. Intervals use the same session attribution window as cost, and
+overlapping intervals count only once. Missing timing data is shown as `—`, not
+replaced by MCP session duration. This is an estimate, not instrumented compute
+time: approval waits and network overhead within a turn may still be included;
+in-progress turns count only through their latest recorded activity. Session
+details retain elapsed Duration and show estimated Task time separately.
+
 `ida-mcp logs` writes an `ida-mcp-logs` schema-1 ZIP with
 `ida-mcp-logs.json` as its table of contents. Collecting the local sessions
 directory archives the same traces the dashboard shows and skips lifecycle-only

@@ -10,6 +10,48 @@ from unittest import mock
 from ida_mcp import dashboard
 
 
+class IndexRuntimeTests(unittest.TestCase):
+    def test_runtime_column_follows_cost_and_sorts_numerically(self) -> None:
+        summary = dashboard.SessionSummary(
+            Path("trace.jsonl"),
+            "trace",
+            0,
+            started=dashboard._parse_ts("2026-01-01T00:00:00Z"),
+            last_activity=dashboard._parse_ts("2026-01-01T00:02:03Z"),
+            stopped=True,
+        )
+        with (
+            mock.patch.object(dashboard, "_scan_sessions", return_value=[summary]),
+            mock.patch.object(dashboard, "_session_task_time", return_value=123.0),
+        ):
+            page = dashboard.render_index()
+        self.assertRegex(page, r"<th>Cost</th>\s*<th[^>]*>Task time</th>")
+        self.assertIn(
+            '<td class="mono" data-sort=""><span class="muted">—</span></td>'
+            '<td class="mono" data-sort="123.000000">2m 03s</td></tr>',
+            page,
+        )
+
+    def test_runtime_zero_subsecond_and_unavailable(self) -> None:
+        for seconds, sort, text in [
+            (0.0, "0.000000", "0 ms"),
+            (0.25, "0.250000", "250 ms"),
+            (None, "", '<span class="muted">—</span>'),
+        ]:
+            with (
+                self.subTest(seconds=seconds),
+                mock.patch.object(
+                    dashboard, "_session_task_time", return_value=seconds
+                ),
+            ):
+                summary = dashboard.SessionSummary(Path("trace.jsonl"), "trace", 0)
+                self.assertTrue(
+                    dashboard._summary_index_row(summary).endswith(
+                        f'<td class="mono" data-sort="{sort}">{text}</td></tr>'
+                    )
+                )
+
+
 class TranscriptTests(unittest.TestCase):
     def test_agent_page_hides_unsupported_events_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

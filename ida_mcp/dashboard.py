@@ -867,6 +867,10 @@ def _summary_index_row(summary: SessionSummary) -> str:
         else ""
     )
     cost, cost_sort = _cost_cell(_session_usage(summary))
+    runtime, runtime_sort = '<span class="muted">—</span>', ""
+    seconds = _session_task_time(summary)
+    if seconds is not None:
+        runtime, runtime_sort = _format_duration(seconds), f"{seconds:.6f}"
     started_sort = f"{summary.started.timestamp():.6f}" if summary.started else ""
     activity_sort = (
         f"{summary.last_activity.timestamp():.6f}" if summary.last_activity else ""
@@ -894,6 +898,7 @@ def _summary_index_row(summary: SessionSummary) -> str:
         f'<td class="date" data-sort="{_e(activity_sort)}">{_e(_format_ts(summary.last_activity))}</td>'
         f'<td data-sort="{_e(summary.status)}">{_status_badge(summary)} {errors}</td>'
         f'<td class="mono" data-sort="{_e(cost_sort)}">{cost}</td>'
+        f'<td class="mono" data-sort="{_e(runtime_sort)}">{runtime}</td>'
         "</tr>"
     )
 
@@ -916,6 +921,7 @@ def render_index() -> str:
   <th>Targets / session</th><th>Model</th>
   <th class="sort-desc" data-dir="desc">Started</th>
   <th>Last activity</th><th>Status</th><th>Cost</th>
+  <th title="Estimated LLM and tool time; excludes waits between user turns">Task time</th>
 </tr></thead>
 <tbody>{rows}</tbody>
 </table>
@@ -1308,6 +1314,42 @@ def _session_usage(summary: SessionSummary) -> dict[str, Any]:
     return totals
 
 
+def _session_task_time(summary: SessionSummary) -> float | None:
+    """Union of transcript task intervals, clipped to this session's window.
+
+    Use the same attribution window as cost, including the prompt before the
+    first MCP call and the final answer after the last one. Never substitute
+    MCP wall time when the transcript has no measurable task intervals.
+    """
+    intervals: list[tuple[datetime, datetime]] = []
+    paths = {path for _kind, path in _summary_agent_sessions(summary)}
+    for session_path in paths:
+        lower, upper = _transcript_window(summary, summary.path, session_path)
+        _items, _meta, _kind, totals = _load_agent_items(session_path)
+        for start, end in totals.get("task_intervals", []):
+            if lower is not None:
+                start = max(start, lower)
+            if upper is not None:
+                end = min(end, upper)
+            if end >= start:
+                intervals.append((start, end))
+    if not intervals:
+        return None
+
+    # Shared/overlapping transcripts and parallel tools must not double count
+    # wall-clock task time.
+    intervals.sort()
+    start, end = intervals[0]
+    seconds = 0.0
+    for next_start, next_end in intervals[1:]:
+        if next_start > end:
+            seconds += (end - start).total_seconds()
+            start, end = next_start, next_end
+        else:
+            end = max(end, next_end)
+    return seconds + (end - start).total_seconds()
+
+
 def _totals_summary_html(totals: dict[str, Any]) -> str:
     parts = [
         f"in {_format_tokens(totals['input'])}",
@@ -1364,6 +1406,7 @@ def render_session(name: str, *, export: bool = False) -> str | None:
     )
     totals = _session_usage(summary)
     models = ", ".join(_session_model_names(summary))
+    task_time = _session_task_time(summary)
     meta_rows = [
         ("Session", f'<span class="mono">{_e(summary.session_id)}</span>'),
         ("Targets", targets),
@@ -1376,6 +1419,10 @@ def render_session(name: str, *, export: bool = False) -> str | None:
             )
             if summary.started and summary.last_activity
             else "?",
+        ),
+        (
+            "Task time (estimated)",
+            _e(_format_duration(task_time)) if task_time is not None else "—",
         ),
         ("Agent session", agents or '<span class="muted">none recorded</span>'),
     ]
@@ -2445,6 +2492,96 @@ def _copilot_session_totals(records: list[dict]) -> dict[str, Any]:
     return totals
 
 
+def _task_intervals(records: list[dict], kind: str) -> list[tuple[datetime, datetime]]:
+    """Estimate active time from each prompt to its last assistant/tool event.
+
+    Read raw records rather than rendered items: tool results are folded into
+    call cards and would otherwise lose their completion timestamps. Metadata,
+    shutdown events and user-only turns don't extend task time. This cannot
+    separate approval waits or network overhead from LLM/tool execution time.
+    """
+    if kind == "pi":
+        records = _pi_active_branch_records(records)
+    events: list[tuple[datetime, bool]] = []
+    for record in records:
+        ts = _parse_ts(record.get("timestamp"))
+        if ts is None:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        record_type = record.get("type")
+        prompt = work = False
+        if kind in {"pi", "claude"}:
+            if kind == "claude" and record.get("isSidechain"):
+                continue
+            message = record.get("message")
+            if not isinstance(message, dict):
+                continue
+            role = message.get("role") or record_type
+            if kind == "pi" and record_type != "message":
+                continue
+            content = message.get("content")
+            tool_result = isinstance(content, list) and any(
+                isinstance(part, dict) and part.get("type") == "tool_result"
+                for part in content
+            )
+            # Claude encodes tool results as user messages, not new prompts.
+            prompt = role == "user" and not tool_result
+            work = role in {"assistant", "toolResult"} or tool_result
+        elif kind == "codex":
+            payload = record.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            payload_type = payload.get("type")
+            if record_type == "event_msg":
+                prompt = payload_type == "user_message"
+                work = payload_type in {
+                    "agent_message",
+                    "agent_reasoning",
+                    "mcp_tool_call_end",
+                    "task_complete",
+                    "task_aborted",
+                    "turn_aborted",
+                }
+            elif record_type == "response_item":
+                work = payload_type in {
+                    "function_call",
+                    "function_call_output",
+                    "custom_tool_call",
+                    "custom_tool_call_output",
+                    "reasoning",
+                } or (payload_type == "message" and payload.get("role") == "assistant")
+        elif kind == "copilot":
+            prompt = record_type == "user.message"
+            work = record_type in {
+                "assistant.message",
+                "assistant.reasoning",
+                "assistant.turn_end",
+                "tool.execution_start",
+                "tool.execution_complete",
+                "model.model_call_success",
+                "model.turn_ended",
+            }
+        if prompt or work:
+            events.append((ts, prompt))
+
+    # Stable ordering preserves record order for events with equal timestamps.
+    events.sort(key=lambda event: event[0])
+    intervals: list[tuple[datetime, datetime]] = []
+    start: datetime | None = None
+    end: datetime | None = None
+    for ts, prompt in events:
+        if prompt:
+            if start is not None and end is not None:
+                intervals.append((start, end))
+            start, end = ts, None
+        elif start is not None:
+            end = ts
+    if start is not None and end is not None:
+        intervals.append((start, end))
+    return intervals
+
+
 _AgentItemsResult = tuple[
     list[TranscriptItem],
     dict[str, str],
@@ -2504,6 +2641,8 @@ def _load_agent_items(
         for item in items:
             if item.usage:
                 _add_usage(totals, item.usage)
+
+    totals["task_intervals"] = _task_intervals(records, kind)
 
     # Agent files can append queued/background records after later-timestamped
     # events. Keep both recognized and fallback items in timestamp order.
