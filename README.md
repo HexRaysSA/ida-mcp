@@ -1,6 +1,6 @@
 # Hex-Rays IDA MCP
 
-Official Hex-Rays IDA MCP Server.
+Official Hex-Rays IDA MCP Server, see the [announcement blog post](https://hex-rays.com/blog/hex-rays-ida-mcp-server) for more information.
 
 ## Installation
 
