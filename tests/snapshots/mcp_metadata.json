@@ -14,7 +14,7 @@
       "name": "ida",
       "version": "<package-version>"
     },
-    "instructions": "IDA Pro reverse engineering of compiled binaries (ELF, PE, Mach-O, firmware): decompile to pseudocode, disassemble, xrefs, strings, imports, types. Use instead of objdump, readelf, nm or strings when you need decompilation or cross-references."
+    "instructions": "IDA Pro reverse engineering of compiled binaries (ELF, PE, Mach-O, firmware): decompile to pseudocode, disassemble (disasm), xrefs, symbols, strings, imports, types. Use instead of objdump, readelf, nm or strings when you need decompilation or cross-references."
   },
   "tools/list": {
     "tools": [
@@ -88,7 +88,7 @@
       },
       {
         "name": "execute_python",
-        "description": "Run Python (IDAPython and the ida-domain API) against the binary open in IDA:\ndecompile a function to Hex-Rays pseudocode, disassemble instructions, enumerate\nfunctions, strings, imports, exports, segments and sections, find cross\nreferences (xrefs to/from an address, callers, callees, call graph), get the\nfunction at an address, inspect or apply types and structs, rename functions and\nvariables, add comments, and patch bytes. Returns the result plus stdout/stderr.\nLook up API names with reference first.",
+        "description": "Run Python (IDAPython and the ida-domain API) against the binary open in IDA:\ndecompile a function to Hex-Rays pseudocode, disassemble (disasm) instructions,\nenumerate functions, strings, imports, exports, symbols, segments and sections,\nfind cross references (xrefs to/from an address, callers, callees, call graph),\nget the function at an address, inspect or apply types and structs, rename\nfunctions and variables, add comments, and patch bytes. Returns the result plus\nstdout/stderr. Look up API names with reference first.",
         "inputSchema": {
           "type": "object",
           "properties": {

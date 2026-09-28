@@ -119,8 +119,8 @@ PACKAGE_VERSION = version("ida-mcp")
 NEXUS_PACKAGE_VERSION = version("ida-nexus")
 MCP_SERVER_INSTRUCTIONS = (
     "IDA Pro reverse engineering of compiled binaries (ELF, PE, Mach-O, firmware): "
-    "decompile to pseudocode, disassemble, xrefs, strings, imports, types. "
-    "Use instead of objdump, readelf, nm or strings when you need decompilation "
+    "decompile to pseudocode, disassemble (disasm), xrefs, symbols, strings, imports, "
+    "types. Use instead of objdump, readelf, nm or strings when you need decompilation "
     "or cross-references."
 )
 mcp = McpServer("ida", version=PACKAGE_VERSION, instructions=MCP_SERVER_INSTRUCTIONS)
@@ -717,12 +717,12 @@ async def execute_python(
     ] = EXECUTE_TIMEOUT_SECONDS,
 ) -> PythonExecutionResult:
     """Run Python (IDAPython and the ida-domain API) against the binary open in IDA:
-    decompile a function to Hex-Rays pseudocode, disassemble instructions, enumerate
-    functions, strings, imports, exports, segments and sections, find cross
-    references (xrefs to/from an address, callers, callees, call graph), get the
-    function at an address, inspect or apply types and structs, rename functions and
-    variables, add comments, and patch bytes. Returns the result plus stdout/stderr.
-    Look up API names with reference first.
+    decompile a function to Hex-Rays pseudocode, disassemble (disasm) instructions,
+    enumerate functions, strings, imports, exports, symbols, segments and sections,
+    find cross references (xrefs to/from an address, callers, callees, call graph),
+    get the function at an address, inspect or apply types and structs, rename
+    functions and variables, add comments, and patch bytes. Returns the result plus
+    stdout/stderr. Look up API names with reference first.
     """
 
     # Resolve an omitted current target once so concurrent open_database calls
