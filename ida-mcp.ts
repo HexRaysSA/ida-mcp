@@ -207,7 +207,7 @@ export default function idaMcp(pi: ExtensionAPI) {
       command: "uv",
       args: [
         "run",
-        "--exclude-newer=1s",
+        "--frozen",
         "ida-mcp",
         "stdio",
         `--agent=${agentKind}`,
