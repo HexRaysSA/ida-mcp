@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -103,5 +104,82 @@ test("OMP waits for MCP tool registration at the first agent start", async (t) =
   await agentStart;
   assert.deepEqual(registeredTools, ["ida_execute_python"]);
 
+  await requireHandler(handlers, "session_shutdown")({}, ctx);
+});
+
+test("open_database resolves paths from the agent workspace", async (t) => {
+  const originalConnect = Reflect.get(Client.prototype, "connect");
+  const originalListTools = Reflect.get(Client.prototype, "listTools");
+  const originalCallTool = Reflect.get(Client.prototype, "callTool");
+  const originalClose = Reflect.get(Client.prototype, "close");
+  t.after(() => {
+    Reflect.set(Client.prototype, "connect", originalConnect);
+    Reflect.set(Client.prototype, "listTools", originalListTools);
+    Reflect.set(Client.prototype, "callTool", originalCallTool);
+    Reflect.set(Client.prototype, "close", originalClose);
+  });
+
+  Reflect.set(Client.prototype, "connect", async () => undefined);
+  Reflect.set(Client.prototype, "listTools", async () => ({
+    tools: [{ name: "open_database", inputSchema: { type: "object" } }],
+  }));
+  Reflect.set(Client.prototype, "close", async () => undefined);
+  const forwarded: Record<string, unknown>[] = [];
+  Reflect.set(
+    Client.prototype,
+    "callTool",
+    async (request: { arguments: Record<string, unknown> }) => {
+      forwarded.push(request.arguments);
+      return { content: [{ type: "text", text: "opened" }] };
+    },
+  );
+
+  const handlers = new Map<string, Handler>();
+  let openDatabase: {
+    execute: (...args: unknown[]) => Promise<unknown>;
+  } | undefined;
+  const pi = {
+    on(event: string, handler: Handler) {
+      handlers.set(event, handler);
+    },
+    registerTool(tool: unknown) {
+      openDatabase = tool as typeof openDatabase;
+    },
+  } as unknown as ExtensionAPI;
+  const ctx = {
+    cwd: resolve("agent-workspace"),
+    ui: { setWidget() {} },
+    sessionManager: { getSessionFile: () => undefined },
+  };
+
+  idaMcp(pi);
+  requireHandler(handlers, "session_start")({}, ctx);
+  await requireHandler(handlers, "input")({}, ctx);
+  assert.ok(openDatabase);
+
+  const relativeArgs = { path: "tests/crackme03.elf" };
+  const absolutePath = resolve(ctx.cwd, "binary.elf");
+  await openDatabase.execute("call-1", relativeArgs, undefined, undefined, ctx);
+  await openDatabase.execute(
+    "call-2",
+    { path: absolutePath },
+    undefined,
+    undefined,
+    ctx,
+  );
+  await openDatabase.execute(
+    "call-3",
+    { path: "~/binary.elf" },
+    undefined,
+    undefined,
+    ctx,
+  );
+
+  assert.deepEqual(forwarded, [
+    { path: resolve(ctx.cwd, "tests/crackme03.elf") },
+    { path: absolutePath },
+    { path: "~/binary.elf" },
+  ]);
+  assert.deepEqual(relativeArgs, { path: "tests/crackme03.elf" });
   await requireHandler(handlers, "session_shutdown")({}, ctx);
 });

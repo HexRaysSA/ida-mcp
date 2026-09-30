@@ -1,7 +1,7 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -285,10 +285,22 @@ export default function idaMcp(pi: ExtensionAPI) {
                 throw new Error("The Hex-Rays IDA MCP server is not connected");
 
               const sessionPath = ctx.sessionManager.getSessionFile();
+              const args = params as Record<string, unknown>;
+              const path = args.path;
+              // The MCP server runs from PACKAGE_ROOT; agent paths use ctx.cwd.
+              // Leave home paths for Nexus to expand on the server side.
+              const forwardedArgs =
+                tool.name === "open_database" &&
+                typeof path === "string" &&
+                path.length > 0 &&
+                !isAbsolute(path) &&
+                !path.startsWith("~")
+                  ? { ...args, path: resolve(ctx.cwd, path) }
+                  : args;
               const result = await client.callTool(
                 {
                   name: tool.name,
-                  arguments: params as Record<string, unknown>,
+                  arguments: forwardedArgs,
                   ...(sessionPath
                     ? { _meta: { [sessionPathField]: sessionPath } }
                     : {}),
