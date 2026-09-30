@@ -8,7 +8,7 @@
         "exec": "uv",
         "args": [
           "run",
-          "--frozen",
+          "--no-dev",
           "--project",
           "${PLUGIN_ROOT}",
           "ida-mcp",

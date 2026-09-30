@@ -7,7 +7,7 @@
       "command": "uv",
       "args": [
         "run",
-        "--frozen",
+        "--no-dev",
         "--project",
         "${CLAUDE_PLUGIN_ROOT}",
         "ida-mcp",
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --frozen --project ${CLAUDE_PLUGIN_ROOT} ida-mcp hook claude"
+            "command": "uv run --no-dev --project ${CLAUDE_PLUGIN_ROOT} ida-mcp hook claude"
           }
         ]
       }

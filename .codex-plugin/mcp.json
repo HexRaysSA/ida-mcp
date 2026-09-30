@@ -3,7 +3,7 @@
     "command": "uv",
     "args": [
       "run",
-      "--frozen",
+      "--no-dev",
       "ida-mcp",
       "stdio",
       "--agent=codex"
