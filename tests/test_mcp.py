@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 from ida_nexus.manager import DatabaseManager
+from zeromcp import McpToolError
 
 from ida_mcp import cli as mcp_cli
 from ida_mcp import mcp as mcp_api
@@ -140,6 +141,21 @@ def test_open_database_recovery_output_schema_is_string() -> None:
     )
 
     assert tool["outputSchema"]["properties"]["recovery"]["type"] == "string"
+
+
+def test_open_database_missing_file_error_names_resolved_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing = tmp_path / "missing.i64"
+    monkeypatch.setattr(
+        mcp_api,
+        "TRACE",
+        SimpleNamespace(path=tmp_path / "trace.jsonl", emit=Mock()),
+    )
+
+    with pytest.raises(McpToolError, match=f"File not found: {missing}"):
+        mcp_api.open_database(str(missing))
 
 
 def test_tool_rejects_builtin_name_collision() -> None:

@@ -308,7 +308,9 @@ def _as_tool_error(error: Exception) -> McpToolError:
             if isinstance(value, str) and value:
                 sections.append(f"{label}:\n{value.rstrip()}")
         return McpToolError("\n\n".join(sections))
-    if isinstance(error, (NexusError, FileNotFoundError, ValueError)):
+    if isinstance(error, FileNotFoundError):
+        return McpToolError(f"File not found: {error}")
+    if isinstance(error, (NexusError, ValueError)):
         return McpToolError(str(error))
     return McpToolError(str(error) or type(error).__name__)
 
