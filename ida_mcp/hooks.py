@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -52,6 +53,20 @@ def _report_codex_session(payload: dict[str, object]) -> dict[str, object]:
 
     transcript_path = payload.get("transcript_path")
     updated_input = dict(tool_input)
+    tool_name = payload.get("tool_name")
+    cwd = payload.get("cwd")
+    path = updated_input.get("path")
+    if (
+        isinstance(tool_name, str)
+        and re.fullmatch(r"mcp__(?:.*[_:])?ida__open_database", tool_name)
+        and isinstance(cwd, str)
+        and os.path.isabs(cwd)
+        and isinstance(path, str)
+        and path
+        and not os.path.isabs(path)
+        and not path.startswith("~")
+    ):
+        updated_input["path"] = os.path.normpath(os.path.join(cwd, path))
     updated_meta = dict(existing_meta)
     updated_meta.pop("codex_session_path", None)
     updated_input.pop("_meta", None)

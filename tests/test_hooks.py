@@ -59,6 +59,54 @@ def test_codex_hook_allows_call_and_preserves_metadata() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "tool_name",
+    ["mcp__ida__open_database", "mcp__plugin_ida-mcp_ida__open_database"],
+)
+def test_codex_hook_resolves_open_database_path_from_workspace(
+    tmp_path: Path, tool_name: str
+) -> None:
+    result, response, error = _run(
+        "codex",
+        {
+            "tool_name": tool_name,
+            "cwd": str(tmp_path),
+            "tool_input": {"path": "samples/program.i64"},
+        },
+    )
+
+    assert result == 0
+    assert error == ""
+    assert response["hookSpecificOutput"]["updatedInput"]["path"] == str(
+        tmp_path / "samples" / "program.i64"
+    )
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "path"),
+    [
+        ("mcp__ida__open_database", "/tmp/program.i64"),
+        ("mcp__ida__open_database", "~/program.i64"),
+        ("mcp__ida__execute_python", "samples/program.i64"),
+    ],
+)
+def test_codex_hook_preserves_other_paths(
+    tmp_path: Path, tool_name: str, path: str
+) -> None:
+    result, response, error = _run(
+        "codex",
+        {
+            "tool_name": tool_name,
+            "cwd": str(tmp_path),
+            "tool_input": {"path": path},
+        },
+    )
+
+    assert result == 0
+    assert error == ""
+    assert response["hookSpecificOutput"]["updatedInput"]["path"] == path
+
+
 def test_copilot_hook_derives_session_file(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("COPILOT_HOME", str(tmp_path))
     result, response, error = _run(
