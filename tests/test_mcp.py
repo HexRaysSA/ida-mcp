@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from ida_nexus import DatabaseOpenOptions
 from ida_nexus.manager import DatabaseManager
 
 from ida_mcp import cli as mcp_cli
@@ -140,6 +141,45 @@ def test_open_database_recovery_output_schema_is_string() -> None:
     )
 
     assert tool["outputSchema"]["properties"]["recovery"]["type"] == "string"
+
+
+def test_open_database_passes_import_options_to_nexus(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    manager = Mock()
+    manager.open_database.return_value = {
+        "instance_id": "worker-1",
+        "backend": "idalib",
+        "status": "current",
+        "recovery": "none",
+    }
+    monkeypatch.setattr(mcp_api, "DATABASE_MANAGER", manager)
+    monkeypatch.setattr(
+        mcp_api,
+        "TRACE",
+        SimpleNamespace(path=tmp_path / "trace.jsonl", emit=Mock()),
+    )
+
+    result = mcp_api.open_database(
+        "/tmp/stage2.bin",
+        processor="metapc",
+        file_type="binary",
+        image_base=0x180000000,
+        entry_point=0x180006D3A,
+    )
+
+    assert result["instance_id"] == "worker-1"
+    manager.open_database.assert_called_once_with(
+        "/tmp/stage2.bin",
+        set_current=True,
+        options=DatabaseOpenOptions(
+            processor="metapc",
+            file_type="binary",
+            image_base=0x180000000,
+            entry_point=0x180006D3A,
+        ),
+    )
 
 
 def test_tool_rejects_builtin_name_collision() -> None:

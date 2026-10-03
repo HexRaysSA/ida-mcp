@@ -73,6 +73,7 @@ def _unset_empty_environment_variables() -> None:
 from ida_nexus import (
     CloseDatabaseResult,
     DatabaseManager,
+    DatabaseOpenOptions,
     DatabaseSelectionError,
     ListDatabasesResult,
     NexusError,
@@ -668,15 +669,43 @@ def open_database(
         bool,
         "Whether this database should become the default target for execute_python().",
     ] = True,
+    processor: Annotated[
+        str | None,
+        "IDA processor module for a newly spawned worker, such as metapc.",
+    ] = None,
+    file_type: Annotated[
+        str | None,
+        "IDA input file type for a newly spawned worker, such as binary.",
+    ] = None,
+    image_base: Annotated[
+        int | None,
+        "Image base byte address for a newly spawned worker; must be 16-byte aligned.",
+    ] = None,
+    entry_point: Annotated[
+        int | None,
+        "Entry point byte address for a newly spawned worker.",
+    ] = None,
 ) -> OpenDatabaseToolResult:
     """Open (load) a binary executable, shared library, firmware image, or an
     existing .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA
     auto-analysis (functions, disassembly, cross references, strings) in a headless
     idalib worker, or attaches to the file already open in the IDA GUI. Call this
     first, then use execute_python to decompile, disassemble and query the binary.
+    Import options apply only when a new headless worker is spawned; they do not
+    change an already-open IDA GUI database or a reused worker.
     """
 
-    result = DATABASE_MANAGER.open_database(path, set_current=set_current)
+    options = DatabaseOpenOptions(
+        processor=processor,
+        file_type=file_type,
+        image_base=image_base,
+        entry_point=entry_point,
+    )
+    result = DATABASE_MANAGER.open_database(
+        path,
+        set_current=set_current,
+        options=options,
+    )
     session = _session_fields()
     mcp_id = session.get("mcp_id")
     return OpenDatabaseToolResult(

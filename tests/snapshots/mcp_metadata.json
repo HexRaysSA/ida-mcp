@@ -20,7 +20,7 @@
     "tools": [
       {
         "name": "open_database",
-        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.",
+        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.\nImport options apply only when a new headless worker is spawned; they do not\nchange an already-open IDA GUI database or a reused worker.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -32,6 +32,54 @@
               "type": "boolean",
               "description": "Whether this database should become the default target for execute_python().",
               "default": true
+            },
+            "processor": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IDA processor module for a newly spawned worker, such as metapc.",
+              "default": null
+            },
+            "file_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IDA input file type for a newly spawned worker, such as binary.",
+              "default": null
+            },
+            "image_base": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Image base byte address for a newly spawned worker; must be 16-byte aligned.",
+              "default": null
+            },
+            "entry_point": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Entry point byte address for a newly spawned worker.",
+              "default": null
             }
           },
           "required": [
