@@ -51,9 +51,16 @@ test("OMP waits for MCP tool registration at the first agent start", async (t) =
 
   const handlers = new Map<string, Handler>();
   const registeredTools: string[] = [];
+  const statusEvents: { channel: string; data: unknown }[] = [];
+  let widgetCalls = 0;
   const pi = {
     arktype: {},
     zod: {},
+    events: {
+      emit(channel: string, data: unknown) {
+        statusEvents.push({ channel, data });
+      },
+    },
     registerFlag() {},
     getFlag() {
       return false;
@@ -74,7 +81,9 @@ test("OMP waits for MCP tool registration at the first agent start", async (t) =
   } as unknown as ExtensionAPI;
   const ctx = {
     ui: {
-      setWidget() {},
+      setWidget() {
+        widgetCalls++;
+      },
     },
   };
 
@@ -105,6 +114,17 @@ test("OMP waits for MCP tool registration at the first agent start", async (t) =
   assert.deepEqual(registeredTools, ["ida_execute_python"]);
 
   await requireHandler(handlers, "session_shutdown")({}, ctx);
+  assert.equal(widgetCalls, 0, "OMP must not draw the Pi status widget");
+  assert.deepEqual(statusEvents, [
+    {
+      channel: "mcp:connection-status",
+      data: { type: "connecting", serverNames: ["ida"] },
+    },
+    {
+      channel: "mcp:connection-status",
+      data: { type: "connected", serverName: "ida" },
+    },
+  ]);
 });
 
 test("open_database resolves paths from the agent workspace", async (t) => {
