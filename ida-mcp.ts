@@ -53,6 +53,32 @@ async function saveStartupLog(output: string): Promise<string | undefined> {
   }
 }
 
+/**
+ * Turn off OMP's built-in IDA integration (the `ida` tool and IDA views in
+ * `read`), which this extension replaces. The override is runtime-only (never
+ * written to the user's config) and OMP drops the built-in tools live, so this
+ * need not finish before the session starts.
+ */
+async function disableOmpBuiltinIda(pi: ExtensionAPI): Promise<void> {
+  try {
+    // The registry exists only under OMP, so a static import would break
+    // loading under Pi. OMP resolves only literal specifiers to its own copy,
+    // and type checking runs against Pi's packages, which lack this module.
+    const registry: {
+      lookup(
+        id: string,
+      ): { override(scope: unknown, value: unknown): void } | undefined;
+    } = await import(
+      // @ts-ignore
+      "@oh-my-pi/pi-coding-agent/config/registry"
+    );
+    const host = pi as unknown as { pi: { settings: unknown } };
+    registry.lookup("ida.enabled")?.override(host.pi.settings, false);
+  } catch {
+    // An OMP without the settings registry keeps its built-in integration.
+  }
+}
+
 function renderToolCall(
   toolName: string,
   args: Record<string, unknown> | undefined,
@@ -93,6 +119,7 @@ function renderToolCall(
 export default function idaMcp(pi: ExtensionAPI) {
   const agentKind = "arktype" in pi && "zod" in pi ? "omp" : "pi";
   if (agentKind === "omp") {
+    void disableOmpBuiltinIda(pi);
     pi.registerFlag(DISCOVERABLE_TOOLS_FLAG, {
       description:
         "Mount IDA tools under xd:// instead of exposing them directly in OMP",
