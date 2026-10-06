@@ -82,10 +82,25 @@ def test_codex_hook_resolves_open_database_path_from_workspace(
     )
 
 
+def test_codex_hook_preserves_absolute_path(tmp_path: Path) -> None:
+    path = str(tmp_path / "program.i64")
+    result, response, error = _run(
+        "codex",
+        {
+            "tool_name": "mcp__ida__open_database",
+            "cwd": str(tmp_path),
+            "tool_input": {"path": path},
+        },
+    )
+
+    assert result == 0
+    assert error == ""
+    assert response["hookSpecificOutput"]["updatedInput"]["path"] == path
+
+
 @pytest.mark.parametrize(
     ("tool_name", "path"),
     [
-        ("mcp__ida__open_database", "/tmp/program.i64"),
         ("mcp__ida__open_database", "~/program.i64"),
         ("mcp__ida__execute_python", "samples/program.i64"),
     ],
