@@ -73,6 +73,7 @@ def _unset_empty_environment_variables() -> None:
 from ida_nexus import (
     CloseDatabaseResult,
     DatabaseManager,
+    DatabaseOpenOptions,
     DatabaseSelectionError,
     ListDatabasesResult,
     NexusError,
@@ -658,6 +659,13 @@ class OpenDatabaseToolResult(OpenDatabaseResult):
     hint: str
 
 
+class LoadOptions(TypedDict, total=False):
+    processor: Annotated[str, "IDA processor module, such as metapc."]
+    file_type: Annotated[str, "IDA input file type, such as binary."]
+    image_base: Annotated[int, "Image base byte address; must be 16-byte aligned."]
+    entry_point: Annotated[int, "Entry point byte address."]
+
+
 @tool(title="Open binary in IDA")
 def open_database(
     path: Annotated[
@@ -668,15 +676,34 @@ def open_database(
         bool,
         "Whether this database should become the default target for execute_python().",
     ] = True,
+    load_options: Annotated[
+        LoadOptions | None,
+        "IDA import options for a newly spawned worker, such as loading a raw blob.",
+    ] = None,
 ) -> OpenDatabaseToolResult:
     """Open (load) a binary executable, shared library, firmware image, or an
     existing .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA
     auto-analysis (functions, disassembly, cross references, strings) in a headless
     idalib worker, or attaches to the file already open in the IDA GUI. Call this
     first, then use execute_python to decompile, disassemble and query the binary.
+    load_options apply only when a new headless worker is spawned; they do not
+    change an already-open IDA GUI database or a reused worker.
     """
 
-    result = DATABASE_MANAGER.open_database(path, set_current=set_current)
+    # Map fields explicitly: DatabaseOpenOptions also carries worker_env,
+    # script_file and similar settings that must not be reachable from a tool call.
+    load_options = load_options or {}
+    options = DatabaseOpenOptions(
+        processor=load_options.get("processor"),
+        file_type=load_options.get("file_type"),
+        image_base=load_options.get("image_base"),
+        entry_point=load_options.get("entry_point"),
+    )
+    result = DATABASE_MANAGER.open_database(
+        path,
+        set_current=set_current,
+        options=options,
+    )
     session = _session_fields()
     mcp_id = session.get("mcp_id")
     return OpenDatabaseToolResult(

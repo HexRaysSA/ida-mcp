@@ -20,7 +20,7 @@
     "tools": [
       {
         "name": "open_database",
-        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.",
+        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.\nload_options apply only when a new headless worker is spawned; they do not\nchange an already-open IDA GUI database or a reused worker.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -32,6 +32,38 @@
               "type": "boolean",
               "description": "Whether this database should become the default target for execute_python().",
               "default": true
+            },
+            "load_options": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "processor": {
+                      "type": "string",
+                      "description": "IDA processor module, such as metapc."
+                    },
+                    "file_type": {
+                      "type": "string",
+                      "description": "IDA input file type, such as binary."
+                    },
+                    "image_base": {
+                      "type": "integer",
+                      "description": "Image base byte address; must be 16-byte aligned."
+                    },
+                    "entry_point": {
+                      "type": "integer",
+                      "description": "Entry point byte address."
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IDA import options for a newly spawned worker, such as loading a raw blob.",
+              "default": null
             }
           },
           "required": [
