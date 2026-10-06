@@ -779,6 +779,7 @@ async def execute_python(
             operation_label=_OPERATION_LABEL,
             persist_globals=True,
             filename="<ida-mcp>",
+            flush_database=True,
         )
 
     operation = asyncio.create_task(asyncio.to_thread(execute))

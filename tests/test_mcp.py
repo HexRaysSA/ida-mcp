@@ -310,6 +310,7 @@ def test_mcp_execute_owns_autoanalysis_policy(monkeypatch) -> None:
             operation_label: str | None = None,
             persist_globals: bool = False,
             filename: str | None = None,
+            flush_database: bool = False,
         ):
             assert persist_globals
             assert filename == "<ida-mcp>"
@@ -481,6 +482,7 @@ def test_cancelling_queued_mcp_execution_does_not_cancel_running_request(
             operation_label: str | None = None,
             persist_globals: bool = False,
             filename: str | None = None,
+            flush_database: bool = False,
         ) -> dict[str, object]:
             assert timeout == 360
             assert persist_globals
