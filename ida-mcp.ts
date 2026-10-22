@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import type { ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -23,6 +23,11 @@ const PACKAGE_ROOT = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_VERSION = (
   createRequire(import.meta.url)("./package.json") as { version: string }
 ).version;
+const METADATA = createRequire(import.meta.url)(
+  "./ida_mcp/mcp_metadata.json",
+) as {
+  "tools/list": ListToolsResult;
+};
 // The MCP SDK requires a request timer. Use Node's largest reliable delay so
 // Pi does not impose a meaningful operation cutoff; backends enforce their own
 // operation-specific timeouts.
@@ -130,10 +135,8 @@ export default function idaMcp(pi: ExtensionAPI) {
 
   const sessionPathField = `${agentKind}_session_path`;
   let client: Client | undefined;
-  let connectingClient: Client | undefined;
-  let startupPromise: Promise<void> | undefined;
-  let pendingOmpToolRegistration: (() => void) | undefined;
-  let sessionRunning = false;
+  let startupPromise: Promise<Client> | undefined;
+  let session: object | undefined;
   let statusHideTimer: NodeJS.Timeout | undefined;
   let statusWidgetMounted = false;
   let requestStatusRender: (() => void) | undefined;
@@ -245,264 +248,236 @@ export default function idaMcp(pi: ExtensionAPI) {
     }
   };
 
-  const startMcp = async (ctx: ExtensionContext): Promise<void> => {
-    if (client || connectingClient) return;
-
-    const next = new Client({ name: "ida", version: PACKAGE_VERSION });
-    connectingClient = next;
+  const startMcp = async (ctx: ExtensionContext): Promise<Client> => {
+    const currentSession = session;
+    let next: Client | undefined;
     let capturedStderr = "";
     let captureStderr = true;
-    const transport = new StdioClientTransport({
-      command: "uv",
-      args: [
-        "run",
-        "--no-dev",
-        "ida-mcp",
-        "stdio",
-        `--agent=${agentKind}`,
-      ],
-      cwd: PACKAGE_ROOT,
-      stderr: "pipe",
-      env: {
-        ...(process.env.IDA_MCP_ID
-          ? { IDA_MCP_ID: process.env.IDA_MCP_ID }
-          : {}),
-        ...(process.env.IDAUSR ? { IDAUSR: process.env.IDAUSR } : {}),
-        ...(process.env.IDA_NEXUS_STATE_DIR
-          ? { IDA_NEXUS_STATE_DIR: process.env.IDA_NEXUS_STATE_DIR }
-          : {}),
-        ...(process.env.IDA_MCP_IDLE_TIMEOUT
-          ? { IDA_MCP_IDLE_TIMEOUT: process.env.IDA_MCP_IDLE_TIMEOUT }
-          : {}),
-      },
-    });
-
-    transport.stderr?.on("data", (chunk: unknown) => {
-      if (!captureStderr) return;
-      const text = Buffer.isBuffer(chunk)
-        ? chunk.toString("utf8")
-        : String(chunk);
-      capturedStderr = (capturedStderr + text).slice(-STDERR_CAPTURE_MAX_CHARS);
-    });
-
+    showStatus(ctx, "starting");
     try {
-      await next.connect(transport);
-      const { tools } = await next.listTools();
-      if (!sessionRunning || connectingClient !== next) {
-        await next.close().catch(() => undefined);
-        return;
-      }
+      const [{ Client }, { StdioClientTransport }] = await Promise.all([
+        import("@modelcontextprotocol/sdk/client/index.js"),
+        import("@modelcontextprotocol/sdk/client/stdio.js"),
+      ]);
+      if (!currentSession || session !== currentSession)
+        throw new Error("The Hex-Rays IDA MCP session ended during startup");
+      next = new Client({ name: "ida", version: PACKAGE_VERSION });
       client = next;
-      connectingClient = undefined;
-      const ompToolOptions =
-        agentKind === "omp"
-          ? {
-              loadMode:
-                pi.getFlag(DISCOVERABLE_TOOLS_FLAG) === true
-                  ? ("discoverable" as const)
-                  : ("essential" as const),
-            }
-          : {};
-      const registerTools = () => {
-        for (const tool of tools) {
-          const piToolName = tool.name.startsWith("ida_")
-            ? tool.name
-            : `ida_${tool.name}`;
-          pi.registerTool({
-            ...ompToolOptions,
-            name: piToolName,
-            // The SDK negotiates 2025-11-25, where the title is top level;
-            // annotations.title is the pre-2025-06-18 location.
-            label: tool.title ?? tool.annotations?.title ?? `IDA ${tool.name}`,
-            description:
-              tool.description ?? `Call the Hex-Rays IDA MCP ${tool.name} tool`,
-            // MCP and Pi both use JSON Schema for tool inputs. The SDK's type is
-            // structurally compatible, but it is not branded as a TypeBox schema.
-            parameters: tool.inputSchema as unknown as Parameters<
-              typeof pi.registerTool
-            >[0]["parameters"],
-            renderCall(args, theme, context) {
-              return renderToolCall(
-                piToolName,
-                args as Record<string, unknown> | undefined,
-                theme,
-                context.expanded,
-              );
-            },
-            async execute(_id, params, signal, onUpdate, ctx) {
-              if (!client)
-                throw new Error("The Hex-Rays IDA MCP server is not connected");
+      const transport = new StdioClientTransport({
+        command: "uv",
+        args: ["run", "--no-dev", "ida-mcp", "stdio", `--agent=${agentKind}`],
+        cwd: PACKAGE_ROOT,
+        stderr: "pipe",
+        env: {
+          ...(process.env.IDA_MCP_ID
+            ? { IDA_MCP_ID: process.env.IDA_MCP_ID }
+            : {}),
+          ...(process.env.IDAUSR ? { IDAUSR: process.env.IDAUSR } : {}),
+          ...(process.env.IDA_NEXUS_STATE_DIR
+            ? { IDA_NEXUS_STATE_DIR: process.env.IDA_NEXUS_STATE_DIR }
+            : {}),
+          ...(process.env.IDA_MCP_IDLE_TIMEOUT
+            ? { IDA_MCP_IDLE_TIMEOUT: process.env.IDA_MCP_IDLE_TIMEOUT }
+            : {}),
+        },
+      });
 
-              const sessionPath = ctx.sessionManager.getSessionFile();
-              const args = params as Record<string, unknown>;
-              const path = args.path;
-              // The MCP server runs from PACKAGE_ROOT; agent paths use ctx.cwd.
-              // Leave home paths for Nexus to expand on the server side.
-              const forwardedArgs =
-                tool.name === "open_database" &&
-                typeof path === "string" &&
-                path.length > 0 &&
-                !isAbsolute(path) &&
-                !path.startsWith("~")
-                  ? { ...args, path: resolve(ctx.cwd, path) }
-                  : args;
-              const result = await client.callTool(
-                {
-                  name: tool.name,
-                  arguments: forwardedArgs,
-                  ...(sessionPath
-                    ? { _meta: { [sessionPathField]: sessionPath } }
-                    : {}),
-                },
-                undefined,
-                {
-                  signal,
-                  timeout: CALL_TIMEOUT_MS,
-                  onprogress(progress) {
-                    const total = progress.total ? `/${progress.total}` : "";
-                    onUpdate?.({
-                      content: [
-                        {
-                          type: "text",
-                          text: `Hex-Rays IDA MCP progress: ${progress.progress}${total}`,
-                        },
-                      ],
-                      details: {},
-                    });
-                  },
-                },
-              );
+      transport.stderr?.on("data", (chunk: unknown) => {
+        if (!captureStderr) return;
+        const text = Buffer.isBuffer(chunk)
+          ? chunk.toString("utf8")
+          : String(chunk);
+        capturedStderr = (capturedStderr + text).slice(
+          -STDERR_CAPTURE_MAX_CHARS,
+        );
+      });
 
-              if (!Array.isArray(result.content)) {
-                return {
-                  content: [
-                    {
-                      type: "text",
-                      text: JSON.stringify(
-                        result.toolResult ?? result,
-                        null,
-                        2,
-                      ),
-                    },
-                  ],
-                  details: {},
-                };
-              }
-
-              const images: PiContent[] = [];
-              const textParts: string[] = [];
-              for (const item of result.content) {
-                if (item.type === "text") textParts.push(item.text);
-                else if (item.type === "image") {
-                  images.push({
-                    type: "image",
-                    data: item.data,
-                    mimeType: item.mimeType,
-                  });
-                } else textParts.push(JSON.stringify(item, null, 2));
-              }
-              if (textParts.length === 0 && result.structuredContent) {
-                textParts.push(
-                  JSON.stringify(result.structuredContent, null, 2),
-                );
-              }
-
-              const fullText = textParts.join("\n");
-              const truncated = truncateHead(fullText, {
-                maxBytes: DEFAULT_MAX_BYTES,
-                maxLines: DEFAULT_MAX_LINES,
-              });
-              let text = truncated.content;
-              let fullOutputPath: string | undefined;
-              if (truncated.truncated) {
-                const dir = await mkdtemp(join(tmpdir(), "pi-ida-mcp-"));
-                fullOutputPath = join(dir, `${tool.name}.txt`);
-                await writeFile(fullOutputPath, fullText, "utf8");
-                text += `\n\n[Output truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}. Full output: ${fullOutputPath}]`;
-              }
-
-              if (result.isError)
-                throw new Error(text || `${tool.name} failed`);
-              return {
-                content: [
-                  ...(text ? [{ type: "text" as const, text }] : []),
-                  ...images,
-                ],
-                details: fullOutputPath ? { fullOutputPath } : {},
-              };
-            },
-          });
-        }
-      };
-
-      if (agentKind === "omp") pendingOmpToolRegistration = registerTools;
-      else registerTools();
-
+      await next.connect(transport);
+      // Discovery also installs the SDK's structured-output validators.
+      await next.listTools();
+      if (session !== currentSession || client !== next)
+        throw new Error("The Hex-Rays IDA MCP session ended during startup");
       captureStderr = false;
       capturedStderr = "";
       showStatus(ctx, "ready");
+      return next;
     } catch (error) {
-      if (connectingClient === next) connectingClient = undefined;
       if (client === next) client = undefined;
-      await next.close().catch(() => undefined);
-      if (!sessionRunning) return;
-
-      const message = error instanceof Error ? error.message : String(error);
-      const logContents = capturedStderr
-        ? `Hex-Rays IDA MCP failed to start: ${message}\n\n${capturedStderr}`
-        : `Hex-Rays IDA MCP failed to start: ${message}\n`;
-      const logPath = await saveStartupLog(logContents);
-      const details = [message, ...(logPath ? [`Log: ${logPath}`] : [])];
-      showStatus(ctx, "error", details);
+      await next?.close().catch(() => undefined);
+      if (session === currentSession) {
+        const message = error instanceof Error ? error.message : String(error);
+        const logContents = `Hex-Rays IDA MCP failed to start: ${message}\n${capturedStderr ? `\n${capturedStderr}` : ""}`;
+        const logPath = await saveStartupLog(logContents);
+        if (session === currentSession) {
+          startupPromise = undefined;
+          showStatus(ctx, "error", [
+            message,
+            ...(logPath ? [`Log: ${logPath}`] : []),
+          ]);
+        }
+      }
+      throw error;
     }
   };
 
-  const ensureOmpToolsRegistered = async (): Promise<void> => {
-    await startupPromise;
-    const registerTools = pendingOmpToolRegistration;
-    pendingOmpToolRegistration = undefined;
-    registerTools?.();
-  };
+  pi.on("session_start", () => {
+    if (session) return;
+    session = {};
+    const ompToolOptions =
+      agentKind === "omp"
+        ? {
+            loadMode:
+              pi.getFlag(DISCOVERABLE_TOOLS_FLAG) === true
+                ? ("discoverable" as const)
+                : ("essential" as const),
+          }
+        : {};
+    for (const tool of METADATA["tools/list"].tools) {
+      const piToolName = tool.name.startsWith("ida_")
+        ? tool.name
+        : `ida_${tool.name}`;
+      pi.registerTool({
+        ...ompToolOptions,
+        name: piToolName,
+        // The SDK negotiates 2025-11-25, where the title is top level;
+        // annotations.title is the pre-2025-06-18 location.
+        label: tool.title ?? tool.annotations?.title ?? `IDA ${tool.name}`,
+        description:
+          tool.description ?? `Call the Hex-Rays IDA MCP ${tool.name} tool`,
+        // MCP and Pi both use JSON Schema for tool inputs. The SDK's type is
+        // structurally compatible, but it is not branded as a TypeBox schema.
+        parameters: tool.inputSchema as unknown as Parameters<
+          typeof pi.registerTool
+        >[0]["parameters"],
+        renderCall(args, theme, context) {
+          return renderToolCall(
+            piToolName,
+            args as Record<string, unknown> | undefined,
+            theme,
+            context.expanded,
+          );
+        },
+        async execute(_id, params, signal, onUpdate, ctx) {
+          signal?.throwIfAborted();
+          if (!session)
+            throw new Error("The Hex-Rays IDA MCP session is not running");
+          const active = await (startupPromise ??= startMcp(ctx));
+          signal?.throwIfAborted();
+          if (client !== active)
+            throw new Error("The Hex-Rays IDA MCP session has ended");
 
-  pi.on("session_start", (_event, ctx) => {
-    if (startupPromise) return;
-    sessionRunning = true;
-    showStatus(ctx, "starting");
-    startupPromise = startMcp(ctx);
+          const sessionPath = ctx.sessionManager.getSessionFile();
+          const args = params as Record<string, unknown>;
+          const path = args.path;
+          // The MCP server runs from PACKAGE_ROOT; agent paths use ctx.cwd.
+          // Leave home paths for Nexus to expand on the server side.
+          const forwardedArgs =
+            tool.name === "open_database" &&
+            typeof path === "string" &&
+            path.length > 0 &&
+            !isAbsolute(path) &&
+            !path.startsWith("~")
+              ? { ...args, path: resolve(ctx.cwd, path) }
+              : args;
+          const result = await active.callTool(
+            {
+              name: tool.name,
+              arguments: forwardedArgs,
+              ...(sessionPath
+                ? { _meta: { [sessionPathField]: sessionPath } }
+                : {}),
+            },
+            undefined,
+            {
+              signal,
+              timeout: CALL_TIMEOUT_MS,
+              onprogress(progress) {
+                const total = progress.total ? `/${progress.total}` : "";
+                onUpdate?.({
+                  content: [
+                    {
+                      type: "text",
+                      text: `Hex-Rays IDA MCP progress: ${progress.progress}${total}`,
+                    },
+                  ],
+                  details: {},
+                });
+              },
+            },
+          );
+
+          if (!Array.isArray(result.content)) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(result.toolResult ?? result, null, 2),
+                },
+              ],
+              details: {},
+            };
+          }
+
+          const images: PiContent[] = [];
+          const textParts: string[] = [];
+          for (const item of result.content) {
+            if (item.type === "text") textParts.push(item.text);
+            else if (item.type === "image") {
+              images.push({
+                type: "image",
+                data: item.data,
+                mimeType: item.mimeType,
+              });
+            } else textParts.push(JSON.stringify(item, null, 2));
+          }
+          if (textParts.length === 0 && result.structuredContent) {
+            textParts.push(JSON.stringify(result.structuredContent, null, 2));
+          }
+
+          const fullText = textParts.join("\n");
+          const truncated = truncateHead(fullText, {
+            maxBytes: DEFAULT_MAX_BYTES,
+            maxLines: DEFAULT_MAX_LINES,
+          });
+          let text = truncated.content;
+          let fullOutputPath: string | undefined;
+          if (truncated.truncated) {
+            const dir = await mkdtemp(join(tmpdir(), "pi-ida-mcp-"));
+            fullOutputPath = join(dir, `${tool.name}.txt`);
+            await writeFile(fullOutputPath, fullText, "utf8");
+            text += `\n\n[Output truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)}. Full output: ${fullOutputPath}]`;
+          }
+
+          if (result.isError) throw new Error(text || `${tool.name} failed`);
+          return {
+            content: [
+              ...(text ? [{ type: "text" as const, text }] : []),
+              ...images,
+            ],
+            details: fullOutputPath ? { fullOutputPath } : {},
+          };
+        },
+      });
+    }
   });
 
-  pi.on("input", async () => {
-    if (agentKind === "omp") await ensureOmpToolsRegistered();
-    else await startupPromise;
-    return { action: "continue" };
+  pi.on("session_shutdown", async (_event, ctx) => {
+    session = undefined;
+    clearStatusWidget(ctx);
+    const active = client;
+    client = undefined;
+    startupPromise = undefined;
+    // The host caps shutdown handlers at 2s; a stuck MCP pipe must not
+    // outlive the session as an orphaned server process. Bound each close
+    // so a hung transport always settles inside the budget. The timer
+    // resolves on its own — it must NOT call close() again, or a hung
+    // first close would wedge the race on the second close too.
+    const closeSoon = (c: Client): Promise<void> =>
+      // setTimeout executor (not withResolvers): the repo typechecks at ES2022.
+      Promise.race([
+        c.close(),
+        new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+      ]).catch(() => undefined);
+    if (active) await closeSoon(active);
   });
-
-  pi.on("before_agent_start", async () => {
-    if (agentKind === "omp") await ensureOmpToolsRegistered();
-  });
-
-	pi.on("session_shutdown", async (_event, ctx) => {
-		sessionRunning = false;
-		clearStatusWidget(ctx);
-		const active = client;
-		const connecting = connectingClient;
-		client = undefined;
-		connectingClient = undefined;
-		startupPromise = undefined;
-		pendingOmpToolRegistration = undefined;
-		// The host caps shutdown handlers at 2s; a stuck MCP pipe must not
-		// outlive the session as an orphaned server process. Bound each close
-		// so a hung transport always settles inside the budget. The timer
-		// resolves on its own — it must NOT call close() again, or a hung
-		// first close would wedge the race on the second close too.
-		const closeSoon = (c: Client): Promise<void> =>
-			// setTimeout executor (not withResolvers): the repo typechecks at ES2022.
-			Promise.race([c.close(), new Promise<void>(resolve => setTimeout(resolve, 1500))]).catch(
-				() => undefined,
-			);
-		await Promise.all([
-			active ? closeSoon(active) : undefined,
-			connecting && connecting !== active ? closeSoon(connecting) : undefined,
-		]);
-	});
 }
