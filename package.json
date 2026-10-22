@@ -17,6 +17,7 @@
     "ida-plugin.json",
     "ida_mcp_plugin.py",
     "ida_mcp/*.py",
+    "ida_mcp/*.json",
     "pyproject.toml",
     "uv.lock"
   ],

@@ -18,7 +18,7 @@ import pytest
 
 from ida_mcp import mcp as mcp_api
 
-SNAPSHOT_PATH = Path(__file__).parent / "snapshots" / "mcp_metadata.json"
+SNAPSHOT_PATH = Path(mcp_api.__file__).with_name("mcp_metadata.json")
 UPDATE_SNAPSHOTS_ENVIRONMENT_VARIABLE = "IDA_MCP_UPDATE_SNAPSHOTS"
 # Newest revision ZeroMCP negotiates; older revisions fold tool titles into
 # annotations and are not what current clients see.

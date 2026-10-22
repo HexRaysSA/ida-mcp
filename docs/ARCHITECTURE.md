@@ -35,6 +35,13 @@ The `ida-mcp` entry point requires one subcommand:
 The CLI imports command implementations lazily. Dashboard, log, and hook
 operations therefore do not initialize the MCP server or database manager.
 
+The Pi/OMP extension registers tools synchronously during `session_start` from
+the packaged `ida_mcp/mcp_metadata.json` schema. It imports the MCP SDK and starts
+the server lazily on the first tool execution, then lists live tools to retain
+SDK output validation. The packaged schema is also the live metadata test's
+golden snapshot; intentional metadata changes regenerate it with
+`IDA_MCP_UPDATE_SNAPSHOTS=1 uv run pytest tests/test_tool_metadata.py`.
+
 ## Tool and database model
 
 The process-wide ZeroMCP server exposes six tools:
