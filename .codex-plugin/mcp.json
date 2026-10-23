@@ -14,7 +14,9 @@
       "IDA_MCP_IDLE_TIMEOUT",
       "IDAUSR",
       "IDA_NEXUS_STATE_DIR",
-      "IDA_MCP_STATE_DIR"
+      "IDA_MCP_STATE_DIR",
+      "IDAPYTHON_VENV_EXECUTABLE",
+      "IDA_NEXUS_IDALIB_ONLY"
     ]
   }
 }

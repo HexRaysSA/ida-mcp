@@ -192,6 +192,21 @@ def test_open_database_passes_load_options_to_nexus(
     )
 
 
+def test_open_database_passes_gui_to_nexus(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    manager = _mock_open_database_manager(monkeypatch, tmp_path)
+
+    mcp_api.open_database("/tmp/stage2.bin", gui=True)
+
+    manager.open_database.assert_called_once_with(
+        "/tmp/stage2.bin",
+        set_current=True,
+        options=DatabaseOpenOptions(gui=True),
+    )
+
+
 def test_open_database_without_load_options_uses_defaults(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

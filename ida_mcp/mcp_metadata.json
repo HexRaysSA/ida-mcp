@@ -20,7 +20,7 @@
     "tools": [
       {
         "name": "open_database",
-        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nidalib worker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.\nload_options apply only when a new headless worker is spawned; they do not\nchange an already-open IDA GUI database or a reused worker.",
+        "description": "Open (load) a binary executable, shared library, firmware image, or an\nexisting .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA\nauto-analysis (functions, disassembly, cross references, strings) in a headless\nworker, or attaches to the file already open in the IDA GUI. Call this\nfirst, then use execute_python to decompile, disassemble and query the binary.\nload_options apply only when a new worker is spawned; they do not change an\nalready-open IDA GUI database or a reused worker.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -64,6 +64,11 @@
               ],
               "description": "IDA import options for a newly spawned worker, such as loading a raw blob.",
               "default": null
+            },
+            "gui": {
+              "type": "boolean",
+              "description": "Open in the IDA GUI instead of a headless worker. Only when the user explicitly asks for the GUI.",
+              "default": false
             }
           },
           "required": [
@@ -217,6 +222,10 @@
                     "type": "string",
                     "description": "Instance backend: gui or idalib."
                   },
+                  "host": {
+                    "type": "string",
+                    "description": "IDA process serving it: gui, idat, or idalib."
+                  },
                   "status": {
                     "type": "string",
                     "description": "Action state: available, attached, current, or unavailable."
@@ -245,6 +254,7 @@
                 "required": [
                   "path",
                   "backend",
+                  "host",
                   "status",
                   "instance_id",
                   "error"
