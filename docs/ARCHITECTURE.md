@@ -17,7 +17,7 @@ agent / MCP client
         │
         └─ ida_nexus.DatabaseManager
                     │
-                    └─ DatabaseHandle lease ──> GUI or idalib worker
+                    └─ DatabaseHandle lease ──> GUI, idalib or idat worker
 ```
 
 ## Commands

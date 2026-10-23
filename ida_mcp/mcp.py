@@ -949,7 +949,8 @@ def close_database(
     """Release this session's lease on an IDA database (.i64/.idb) without
     disrupting other clients. If this is the final lease on a managed idalib worker,
     orphaned IDA Python execution is cancelled and this call waits for the IDB to
-    shut down. Databases open in the IDA GUI stay open.
+    shut down. Databases open in the IDA GUI stay open. To move a database to the
+    GUI, close it and, when final_lease is true, open idb_path with gui=true.
     """
 
     return DATABASE_MANAGER.close_database(instance_id)

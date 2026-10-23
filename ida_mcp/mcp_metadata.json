@@ -84,7 +84,7 @@
             },
             "backend": {
               "type": "string",
-              "description": "Instance backend: gui or idalib."
+              "description": "IDA process serving it: gui, idalib, or idat."
             },
             "status": {
               "type": "string",
@@ -220,11 +220,7 @@
                   },
                   "backend": {
                     "type": "string",
-                    "description": "Instance backend: gui or idalib."
-                  },
-                  "host": {
-                    "type": "string",
-                    "description": "IDA process serving it: gui, idat, or idalib."
+                    "description": "IDA process serving it: gui, idalib, or idat."
                   },
                   "status": {
                     "type": "string",
@@ -254,7 +250,6 @@
                 "required": [
                   "path",
                   "backend",
-                  "host",
                   "status",
                   "instance_id",
                   "error"
@@ -309,7 +304,7 @@
       },
       {
         "name": "close_database",
-        "description": "Release this session's lease on an IDA database (.i64/.idb) without\ndisrupting other clients. If this is the final lease on a managed idalib worker,\norphaned IDA Python execution is cancelled and this call waits for the IDB to\nshut down. Databases open in the IDA GUI stay open.",
+        "description": "Release this session's lease on an IDA database (.i64/.idb) without\ndisrupting other clients. If this is the final lease on a managed idalib worker,\norphaned IDA Python execution is cancelled and this call waits for the IDB to\nshut down. Databases open in the IDA GUI stay open. To move a database to the\nGUI, close it and, when final_lease is true, open idb_path with gui=true.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -334,10 +329,20 @@
           "properties": {
             "closed": {
               "type": "boolean"
+            },
+            "final_lease": {
+              "type": "boolean",
+              "description": "Whether this was the last lease: the worker then saved and closed its IDB before returning. Always false for the IDA GUI, which stays open."
+            },
+            "idb_path": {
+              "type": "string",
+              "description": "Path of the saved database, for reopening it."
             }
           },
           "required": [
-            "closed"
+            "closed",
+            "final_lease",
+            "idb_path"
           ],
           "additionalProperties": false
         }
