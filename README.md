@@ -40,7 +40,12 @@ uvx ida-hcli plugin install ida-mcp@https://github.com/HexRaysSA/ida-mcp
 hcli plugin install ida-mcp@https://github.com/HexRaysSA/ida-mcp
 ```
 
-_Note_: Without the GUI plugin, IDA MCP will still work headlessly.
+_Note_: Without the plugin, IDA MCP still works headlessly, in a worker that
+uses the Python environment of the MCP server. With the plugin installed,
+headless workers run inside `idat` with IDA's own Python, so IDA plugins and
+the packages installed for IDA are available, and the agent can ask for
+`gui=true` to open a file in the IDA GUI. Set `IDA_NEXUS_IDALIB_ONLY=1` to
+keep workers in the server's Python environment regardless.
 
 #### [Claude Code](https://claude.com/product/claude-code)
 

@@ -89,6 +89,14 @@ Sessions previously lived under ida-nexus's own state directory
 joined with the current one, unless `--sessions-dir` or `--archive` narrows
 the search to a single directory.
 
+Agent hosts start the MCP server without the user's shell environment, so
+the agent plugin manifests forward an explicit allowlist
+(`MCP_ENVIRONMENT_VARIABLES`): the state and ID variables above, `IDAUSR`,
+`IDAPYTHON_VENV_EXECUTABLE` so the `idat` workers Nexus starts use the IDA
+Python that hcli configured, and `IDA_NEXUS_IDALIB_ONLY` for operators who
+keep workers in the client's idalib. Empty forwarded values are unset again
+at startup.
+
 `IDA_MCP_ID` supplies an optional trusted process-level correlation ID.
 Agent hooks place transcript paths in hidden request metadata using the
 `<agent-kind>_session_path` convention. Embedded metadata is removed from public

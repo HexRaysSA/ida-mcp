@@ -60,6 +60,8 @@ MCP_ENVIRONMENT_VARIABLES = (
     "IDA_NEXUS_STATE_DIR",
     STATE_DIR_ENVIRONMENT_VARIABLE,
     MCP_IDLE_TIMEOUT_ENVIRONMENT_VARIABLE,
+    "IDAPYTHON_VENV_EXECUTABLE",
+    "IDA_NEXUS_IDALIB_ONLY",
 )
 
 
@@ -680,20 +682,26 @@ def open_database(
         LoadOptions | None,
         "IDA import options for a newly spawned worker, such as loading a raw blob.",
     ] = None,
+    gui: Annotated[
+        bool,
+        "Open in the IDA GUI instead of a headless worker. Only when the user "
+        "explicitly asks for the GUI.",
+    ] = False,
 ) -> OpenDatabaseToolResult:
     """Open (load) a binary executable, shared library, firmware image, or an
     existing .i64/.idb IDA database in IDA Pro for reverse engineering. Runs IDA
     auto-analysis (functions, disassembly, cross references, strings) in a headless
-    idalib worker, or attaches to the file already open in the IDA GUI. Call this
+    worker, or attaches to the file already open in the IDA GUI. Call this
     first, then use execute_python to decompile, disassemble and query the binary.
-    load_options apply only when a new headless worker is spawned; they do not
-    change an already-open IDA GUI database or a reused worker.
+    load_options apply only when a new worker is spawned; they do not change an
+    already-open IDA GUI database or a reused worker.
     """
 
-    # Map fields explicitly: DatabaseOpenOptions also carries worker_env,
-    # script_file and similar settings that must not be reachable from a tool call.
+    # Map fields explicitly: DatabaseOpenOptions also carries worker_env and
+    # similar settings that must not be reachable from a tool call.
     load_options = load_options or {}
     options = DatabaseOpenOptions(
+        gui=gui,
         processor=load_options.get("processor"),
         file_type=load_options.get("file_type"),
         image_base=load_options.get("image_base"),
