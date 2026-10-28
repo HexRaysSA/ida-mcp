@@ -230,20 +230,6 @@ def test_tool_rejects_builtin_name_collision() -> None:
         mcp_api.tool(open_database)
 
 
-def test_mcp_unsets_empty_forwarded_environment_variables(monkeypatch) -> None:
-    monkeypatch.setenv("IDA_MCP_ID", "")
-    monkeypatch.setenv("IDAUSR", "/tmp/ida-user")
-    monkeypatch.setenv("IDA_NEXUS_STATE_DIR", "")
-    monkeypatch.setenv("IDA_MCP_STATE_DIR", "")
-
-    mcp_api._unset_empty_environment_variables()
-
-    assert "IDA_MCP_ID" not in mcp_api.os.environ
-    assert mcp_api.os.environ["IDAUSR"] == "/tmp/ida-user"
-    assert "IDA_NEXUS_STATE_DIR" not in mcp_api.os.environ
-    assert "IDA_MCP_STATE_DIR" not in mcp_api.os.environ
-
-
 def test_mcp_gui_plugin_requires_current_or_newer_version(tmp_path: Path) -> None:
     plugin_dir = tmp_path / "plugins" / "ida-nexus"
     plugin_dir.mkdir(parents=True)

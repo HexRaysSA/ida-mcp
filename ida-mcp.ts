@@ -40,6 +40,16 @@ const STATUS_HIDE_DELAY_MS = 4000;
 const OMP_MCP_STATUS_CHANNEL = "mcp:connection-status";
 const OMP_MCP_SERVER_NAME = "ida";
 const DISCOVERABLE_TOOLS_FLAG = "ida-tools-discoverable";
+// Checked against ida_mcp.mcp.MCP_ENVIRONMENT_VARIABLES by tests/test_package.py.
+const MCP_ENVIRONMENT_VARIABLES = [
+  "IDA_MCP_ID",
+  "IDAUSR",
+  "IDAPYTHON_VENV_EXECUTABLE",
+  "IDA_NEXUS_IDALIB_ONLY",
+  "IDA_NEXUS_STATE_DIR",
+  "IDA_MCP_STATE_DIR",
+  "IDA_MCP_IDLE_TIMEOUT",
+] as const;
 
 type PiContent =
   | { type: "text"; text: string }
@@ -263,23 +273,17 @@ export default function idaMcp(pi: ExtensionAPI) {
         throw new Error("The Hex-Rays IDA MCP session ended during startup");
       next = new Client({ name: "ida", version: PACKAGE_VERSION });
       client = next;
+      const env: Record<string, string> = {};
+      for (const name of MCP_ENVIRONMENT_VARIABLES) {
+        const value = process.env[name];
+        if (value) env[name] = value;
+      }
       const transport = new StdioClientTransport({
         command: "uv",
         args: ["run", "--no-dev", "ida-mcp", "stdio", `--agent=${agentKind}`],
         cwd: PACKAGE_ROOT,
         stderr: "pipe",
-        env: {
-          ...(process.env.IDA_MCP_ID
-            ? { IDA_MCP_ID: process.env.IDA_MCP_ID }
-            : {}),
-          ...(process.env.IDAUSR ? { IDAUSR: process.env.IDAUSR } : {}),
-          ...(process.env.IDA_NEXUS_STATE_DIR
-            ? { IDA_NEXUS_STATE_DIR: process.env.IDA_NEXUS_STATE_DIR }
-            : {}),
-          ...(process.env.IDA_MCP_IDLE_TIMEOUT
-            ? { IDA_MCP_IDLE_TIMEOUT: process.env.IDA_MCP_IDLE_TIMEOUT }
-            : {}),
-        },
+        env,
       });
 
       transport.stderr?.on("data", (chunk: unknown) => {
