@@ -1,6 +1,6 @@
 {
   "name": "ida-mcp",
-  "version": "20261023.0.2",
+  "version": "20261028.0.1",
   "description": "IDA MCP extension",
   "license": "MIT",
   "type": "module",
