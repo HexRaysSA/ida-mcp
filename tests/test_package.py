@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import importlib
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -67,26 +69,43 @@ def test_dashboard_and_logs_also_know_the_legacy_nexus_location() -> None:
     assert dashboard.LEGACY_SESSIONS_DIR in dashboard.SESSIONS_DIRS
 
 
-def test_agent_plugin_manifests_forward_every_mcp_environment_variable() -> None:
+def test_environment_whitelists_match() -> None:
     expected = set(mcp.MCP_ENVIRONMENT_VARIABLES)
-
-    claude_plugin = json.loads(
-        (ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+    extension = (ROOT / "ida-mcp.ts").read_text(encoding="utf-8")
+    matches = re.findall(
+        r"^const\s+MCP_ENVIRONMENT_VARIABLES\s*=\s*(\[[^\]]*\])\s*as\s+const\s*;",
+        extension,
+        re.MULTILINE,
     )
-    claude_env = claude_plugin["mcpServers"]["ida"]["env"]
-    assert set(claude_env) == expected
-    for name in expected:
-        assert claude_env[name] == f"${{{name}:-}}"
-
-    copilot_plugin = json.loads(
-        (ROOT / ".github" / "plugin" / "mcp.json").read_text(encoding="utf-8")
+    assert len(matches) == 1, (
+        "ida-mcp.ts: expected one literal MCP_ENVIRONMENT_VARIABLES list"
     )
-    copilot_env = copilot_plugin["mcpServers"]["ida"]["env"]
-    assert set(copilot_env) == expected
-    for name in expected:
-        assert copilot_env[name] == f"${{{name}:-}}"
-
-    codex_plugin = json.loads(
-        (ROOT / ".codex-plugin" / "mcp.json").read_text(encoding="utf-8")
+    names = ast.literal_eval(matches[0])
+    assert isinstance(names, list) and all(isinstance(name, str) for name in names), (
+        "ida-mcp.ts: MCP_ENVIRONMENT_VARIABLES must be a list of strings"
     )
-    assert set(codex_plugin["ida"]["env_vars"]) == expected
+
+    declarations: dict[str, list[str] | dict[str, str]] = {"ida-mcp.ts": names}
+    for path, pointer in (
+        (".claude-plugin/plugin.json", ("mcpServers", "ida", "env")),
+        (".github/plugin/mcp.json", ("mcpServers", "ida", "env")),
+        (".codex-plugin/mcp.json", ("ida", "env_vars")),
+    ):
+        value = json.loads((ROOT / path).read_text(encoding="utf-8"))
+        for key in pointer:
+            value = value[key]
+        declarations[path] = value
+
+    errors = []
+    for path, forwarded in declarations.items():
+        actual = set(forwarded)
+        if missing := expected - actual:
+            errors.append(f"{path}: missing {', '.join(sorted(missing))}")
+        if extra := actual - expected:
+            errors.append(f"{path}: unexpected {', '.join(sorted(extra))}")
+        if isinstance(forwarded, dict):
+            for name, value in forwarded.items():
+                interpolation = f"${{{name}:-}}"
+                if value != interpolation:
+                    errors.append(f"{path}: {name} must forward {interpolation!r}")
+    assert not errors, "\n".join(errors)
