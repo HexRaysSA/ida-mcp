@@ -11,13 +11,18 @@ import {
   DEFAULT_MAX_LINES,
   formatSize,
   highlightCode,
-  keyHint,
+  keyText,
   truncateHead,
   type ExtensionAPI,
   type ExtensionContext,
   type Theme,
 } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+
+type Rows = { render(width: number): string[]; invalidate(): void };
+
+// Pi's Text wraps rows to the width (Pi's TUI throws on wider rows); OMP has
+// no Text and cuts wide rows itself. Undefined under OMP.
+type PiText = new (text: string, paddingX: number, paddingY: number) => Rows;
 
 const PACKAGE_ROOT = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_VERSION = (
@@ -99,7 +104,12 @@ function renderToolCall(
   args: Record<string, unknown> | undefined,
   theme: Theme,
   expanded: boolean,
-): Text {
+  Text: PiText | undefined,
+): Rows {
+  const textRows = (text: string): Rows =>
+    Text
+      ? new Text(text, 0, 0)
+      : { render: () => text.split("\n"), invalidate() {} };
   let text = theme.fg("toolTitle", theme.bold(toolName));
   const mcpToolName = toolName.startsWith("ida_")
     ? toolName.slice(4)
@@ -119,20 +129,22 @@ function renderToolCall(
     if (remaining > 0) {
       text +=
         theme.fg("muted", `\n... (${remaining} more lines,`) +
-        ` ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`;
+        ` ${theme.fg("dim", keyText("app.tools.expand"))}` +
+        theme.fg("muted", " to expand)");
     }
-    return new Text(text, 0, 0);
+    return textRows(text);
   }
 
   const serialized = args ? JSON.stringify(args, null, 2) : undefined;
   if (serialized && serialized !== "{}") {
     text += `\n\n${theme.fg("toolOutput", serialized)}`;
   }
-  return new Text(text, 0, 0);
+  return textRows(text);
 }
 
-export default function idaMcp(pi: ExtensionAPI) {
+export default async function idaMcp(pi: ExtensionAPI): Promise<void> {
   const agentKind = "arktype" in pi && "zod" in pi ? "omp" : "pi";
+  let Text: PiText | undefined;
   if (agentKind === "omp") {
     void disableOmpBuiltinIda(pi);
     pi.registerFlag(DISCOVERABLE_TOOLS_FLAG, {
@@ -359,6 +371,7 @@ export default function idaMcp(pi: ExtensionAPI) {
             args as Record<string, unknown> | undefined,
             theme,
             context.expanded,
+            Text,
           );
         },
         async execute(_id, params, signal, onUpdate, ctx) {
@@ -484,4 +497,15 @@ export default function idaMcp(pi: ExtensionAPI) {
       ]).catch(() => undefined);
     if (active) await closeSoon(active);
   });
+
+  // OMP refuses to load any extension whose source names Pi's TUI package, so
+  // it is loaded only under Pi, from a specifier assembled at runtime. Pi
+  // awaits the factory, so Text is ready before any tool call renders.
+  if (agentKind === "pi") {
+    const piTui = ["@earendil-works", "pi-tui"].join("/");
+    const module = await import(piTui);
+    if (typeof module.Text !== "function")
+      throw new Error(`${piTui} does not export Text`);
+    Text = module.Text;
+  }
 }
